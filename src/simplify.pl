@@ -1,74 +1,97 @@
+%! <module> Predicates for searching rewrite graphs
+%
+% This module provides basic utilities for examining conditional rewrite graphs.
+% Rewrite graphs are encoded as Prolog rules of the form
+%	`OldTerm := NewTerm :- Conditions`.
+%
+% @author Chris Barrick
+% @license MIT
+
 :- module(simplify, [
+	rewrite/2,
 	simplify/2,
+	simplify_compound/2,
 	simplify_args/2
 ]).
 
 
-%% simplify(+Term, -Canonical)
-% Simplifies a term to its normal form.
+%! rewrite(?A, ?B) is nondet
+% There exists a rule allowing term A to be rewritten as term B.
+%
+% @arg A is the source term.
+% @arg B is the destination term.
 
-% Variables, numbers, atoms, and strings are already normal.
+rewrite(A, B) :-
+	% We cannot use rules that require a term to be narrower (i.e. more
+	% instantiated). To prevent narrowing, we search for rules using a copy of
+	% the term. Unusable rules will narrow the copy. However, if the copy
+	% subsumes the original, then the rule does not require a more narrow term.
+	copy_term(A, Copy),
+	clause(Copy := B, Body),
+	subsumes_term(Copy, A),
+	A = Copy,
+
+	% If the rule has conditions, we must check that they are met. The body of
+	% the rule is scoped to the module in which it was defined. Thus we must
+	% tell `call/1` to evaluate its argument relative to the proper module.
+	predicate_property(A := B, imported_from(Module)),
+	call(Module:Body).
+
+
+%! simplify(?Term, ?Normal) is det
+% Searches the graph of rewrite rules for the normal form of a term. If the
+% graph contains multiple normal forms, only the first is found. For compound
+% terms, the arguments are normalized before the term itself.
+%
+% @arg Term is the initial term.
+% @arg Normal is the normal form of Term.
+
 simplify(Term, Term) :- var(Term), !.
 simplify(Term, Term) :- number(Term), !.
 simplify(Term, Term) :- atom(Term), !.
 simplify(Term, Term) :- string(Term), !.
-
-% Do a graph-search for a normal form of a compound term.
-simplify(Term, Canonical) :-
-	compound(Term), !,
-	simplify_compound(Term, Canonical).
+simplify(Term, Normal) :- simplify_compound(Term, Normal).
 
 
-%% simplify_compound(+Term, -Canonical)
-% Performs a graph-search of the rewrite rules to find a normal form of a
-% compound term.
+%! simplify_compound(?Term:compound, ?Normal:compound) is det
+% Like `simplify/2` with the constraint that Term must be a compound.
+%
+% @arg Term is the initial term.
+% @arg Normal is the normal form of Term.
 
-simplify_compound(Term, Canonical) :-
-	simplify_compound(Term, Canonical, [Term]).
-
-simplify_compound(Term, Canonical, Seen) :-
-
-	% We need to simplify the arguments first.
+simplify_compound(Term, Normal) :-
 	simplify_args(Term, NormalArgs),
+	simplify_compound(NormalArgs, Normal, [Term]).
 
-	(
-		% Rules should not narrow variables. To prevent that, we check the
-		% knowledge base against a copy of the term. Since the copy of the term
-		% cannot be no wider than the original (in terms of variable bindings),
-		% whenever the copy can subsume the original, the copy has not been made
-		% any more specific.
-		copy_term(NormalArgs, Pattern),
-		clause(Pattern := Next, Body),
-		subsumes_term(Pattern, NormalArgs),
-		NormalArgs = Pattern,
 
-		% Check that the conditions of the rewrite are met. We explicitly find
-		% which module defines the rule so that we can call the body relative
-		% to the proper module.
-		predicate_property(Pattern := Next, imported_from(Module)),
-		call(Module:Body),
+%! simplify_compound(?Term:compound, ?Normal:compound, +Seen:list) is det
+% A helper predicate for `simplify_compound/2`. Here we assume that the
+% arguments of Term are already normal.
+%
+% @arg Term is the initial term.
+% @arg Normal is the normal form of Term.
+% @arg Seen is the list of terms already encountered in the graph.
 
-		% Check that we have not already seen this form.
-		\+ (
-			member(Previous, Seen),
-			Next == Previous
-		),
-
-		% Try to rewrite again.
-		simplify_compound(Next, Canonical, [Next|Seen])
-	;
-		Canonical = NormalArgs
+simplify_compound(Term, Normal, Seen) :-
+	rewrite(Term, Next),
+	\+ (
+		member(Previous, Seen),
+		Next == Previous
 	),
-	!.
+	!,
+	simplify_args(Next, NextNormalArgs),
+	simplify_compound(NextNormalArgs, Normal, [Next|Seen]).
+
+simplify_compound(Normal, Normal, _).
 
 
-%% simplify_args(+Term, +Canonical)
-% Simplify the arguments of a term to their normal forms.
+%! simplify_args(?Term:compound, ?NormalArgs:compound) is det
+% Like `simplify_compound/2` but only simplifies the arguments of the term.
 
-simplify_args(Term, Canonical) :-
-	Term =.. [Functor|Arguments],
-	length(Arguments, L),
-	length(CanonicalArgs, L),
-	maplist(simplify, Arguments, CanonicalArgs),
-	Canonical =.. [Functor|CanonicalArgs],
+simplify_args(Term, NormalArgs) :-
+	compound(Term),
+	Term =.. [Functor|Args1],
+	same_length(Args1, Args2),
+	maplist(simplify, Args1, Args2),
+	NormalArgs =.. [Functor|Args2],
 	!.
