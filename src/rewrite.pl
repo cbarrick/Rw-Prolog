@@ -7,7 +7,7 @@
 % @author Chris Barrick
 % @license MIT
 
-:- module(simplify, [
+:- module(rewrite, [
 	rewrite/2,
 	simplify/2,
 	simplify_compound/2,

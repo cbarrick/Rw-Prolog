@@ -2,7 +2,7 @@
 	(:=)/2
 ]).
 
-:- use_module('../src/simplify').
+:- use_module('../src/rewrite').
 
 
 % Normal ordering of terms
