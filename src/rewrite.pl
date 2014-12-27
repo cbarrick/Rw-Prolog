@@ -53,7 +53,7 @@ simplify(Term, Term) :- string(Term), !.
 simplify(Term, Normal) :- simplify_compound(Term, Normal).
 
 
-%! simplify_compound(?Term:compound, ?Normal:compound) is det
+%! simplify_compound(?Term:compound, ?Normal) is det
 % Like `simplify/2` with the constraint that Term must be a compound.
 %
 % @arg Term is the initial term.
@@ -64,7 +64,7 @@ simplify_compound(Term, Normal) :-
 	simplify_compound(NormalArgs, Normal, [Term]).
 
 
-%! simplify_compound(?Term:compound, ?Normal:compound, +Seen:list) is det
+%! simplify_compound(?Term:compound, ?Normal, +Seen:list) is det
 % A helper predicate for `simplify_compound/2`. Here we assume that the
 % arguments of Term are already normal.
 %
