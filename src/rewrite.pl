@@ -34,8 +34,12 @@ rewrite(A, B) :-
 	% If the rule has conditions, we must check that they are met. The body of
 	% the rule is scoped to the module in which it was defined. Thus we must
 	% tell `call/1` to evaluate its argument relative to the proper module.
-	predicate_property(A := B, imported_from(Module)),
-	call(Module:Body).
+	once((
+		predicate_property(A := B, imported_from(Module)),
+		call(Module:Body)
+	;
+		call(Body)
+	)).
 
 
 %! simplify(?Term, ?Normal) is det
