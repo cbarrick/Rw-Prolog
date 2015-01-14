@@ -21,6 +21,10 @@
 % @arg A is the source term.
 % @arg B is the destination term.
 
+% Pure variables cannot be rewritten
+rewrite(A, _) :- var(A), !, fail.
+
+% Apply rewriting to the principal functor
 rewrite(A, B) :-
 	% We cannot use rules that require a term to be narrower (i.e. more
 	% instantiated). To prevent narrowing, we search for rules using a copy of
@@ -40,6 +44,19 @@ rewrite(A, B) :-
 	;
 		call(Body)
 	)).
+
+% Apply rewriting to arguments
+rewrite(A, B) :-
+	A =.. [Functor|OriginalArgs],
+	rewrite_args_(OriginalArgs, NewArgs),
+	B =.. [Functor|NewArgs],
+	A \== B.
+
+
+% Given a list of terms, possibly rewrite any number of them.
+rewrite_args_([], []).
+rewrite_args_([X|Xs], [X|Ys]) :- rewrite_args_(Xs, Ys).
+rewrite_args_([X|Xs], [Y|Ys]) :- rewrite(X, Y), rewrite_args_(Xs, Ys).
 
 
 %! simplify(?Term, ?Normal) is det
