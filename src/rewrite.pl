@@ -21,8 +21,9 @@
 % @arg A is the source term.
 % @arg B is the destination term.
 
-% Pure variables cannot be rewritten
+% Variables and numbers cannot be rewritten
 rewrite(A, _) :- var(A), !, fail.
+rewrite(A, _) :- number(A), !, fail.
 
 % Apply rewriting to the principal functor
 rewrite(A, B) :-
@@ -69,8 +70,6 @@ rewrite_args_([X|Xs], [Y|Ys]) :- rewrite(X, Y), rewrite_args_(Xs, Ys).
 
 simplify(Term, Term) :- var(Term), !.
 simplify(Term, Term) :- number(Term), !.
-simplify(Term, Term) :- atom(Term), !.
-simplify(Term, Term) :- string(Term), !.
 simplify(Term, Normal) :- simplify_compound(Term, Normal).
 
 
