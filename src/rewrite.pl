@@ -116,3 +116,27 @@ simplify_args(Term, NormalArgs) :-
 	maplist(simplify, Args1, Args2),
 	NormalArgs =.. [Functor|Args2],
 	!.
+
+
+%! unify_rw(?A, ?B, ?UnifyingTerm)
+% TODO: Document
+
+unify_rw(A, A, A) :- !.
+unify_rw(A, B, Target) :- unify_rw_(A, B, Target, [A], [B]), !.
+
+
+unify_rw_(A, _, A, _, SeenB) :- member(A, SeenB).
+
+unify_rw_(A, B, Target, SeenA, SeenB) :-
+	rewrite(A, Next),
+	\+ (
+		member(Previous, SeenA),
+		Next == Previous
+	),
+	duplicate_term(SeenA, SeenAOriginal),
+	nb_setarg(1, SeenA, Next),
+	nb_setarg(2, SeenA, SeenAOriginal),
+	!,
+	unify_rw_(B, Next, Target, SeenB, SeenA).
+
+unify_rw_(A, B, Target, SeenA, SeenB) :- unify_rw_(B, A, Target, SeenB, SeenA).
