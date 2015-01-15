@@ -1,7 +1,3 @@
-:- module(algebra, [
-	(:=)/2
-]).
-
 :- use_module('../src/rewrite').
 
 
