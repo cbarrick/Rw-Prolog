@@ -11,7 +11,8 @@
 	rewrite/2,
 	simplify/2,
 	simplify_compound/2,
-	simplify_args/2
+	simplify_args/2,
+	op(990, xfx, (:=))
 ]).
 
 
