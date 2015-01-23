@@ -80,17 +80,11 @@ simplify(Term, Normal) :- simplify_compound(Term, Normal).
 % @arg Normal is the normal form of Term.
 
 simplify_compound(Term, Normal) :-
-	simplify_args(Term, NormalArgs),
-	simplify_compound(NormalArgs, Normal, [Term]).
+	simplify_compound(Term, Normal, [Term]).
 
-
-%! simplify_compound(?Term:compound, ?Normal, +Seen:list) is det
-% A helper predicate for `simplify_compound/2`. Here we assume that the
-% arguments of Term are already normal.
-%
-% @arg Term is the initial term.
-% @arg Normal is the normal form of Term.
-% @arg Seen is the list of terms already encountered in the graph.
+simplify_compound(Normal, Normal, _) :-
+	\+ rewrite(Normal, _),
+	!.
 
 simplify_compound(Term, Normal, Seen) :-
 	rewrite(Term, Next),
@@ -99,10 +93,7 @@ simplify_compound(Term, Normal, Seen) :-
 		Next == Previous
 	),
 	!,
-	simplify_args(Next, NextNormalArgs),
-	simplify_compound(NextNormalArgs, Normal, [Next|Seen]).
-
-simplify_compound(Normal, Normal, _).
+	simplify_compound(Next, Normal, [Next|Seen]).
 
 
 %! simplify_args(?Term:compound, ?NormalArgs:compound) is det
