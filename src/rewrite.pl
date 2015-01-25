@@ -105,31 +105,8 @@ simplify_(Normal, Normal, _).
 % TODO: Document
 
 unify_rw(A, A, A) :- !.
-unify_rw(A, B, Target) :- unify_rw_(A, B, Target, [A], [B]), !.
-
-% We introduce two new state parameters, `SeenA` and `SeenB`, that maintain
-% a cache of the forms of `A` and `B` already seen in the search. The caches
-% are updated with `nb_setarg/2`, allowing the entries to persist across
-% backtracking.
-% TODO: Optimize caches. Currently we are using lists, but (lack of) membership
-% is the only property we care about. I bet there is some kind of set data
-% structure that would allow us to check for non-membership efficiently.
-
-unify_rw_(A, _, A, _, SeenB) :- member(A, SeenB).
-
-unify_rw_(A, B, Target, SeenA, SeenB) :-
-	rewrite(A, Next),
-	\+ (
-		member(Previous, SeenA),
-		Next == Previous
-	),
-
-	% Update the caches. This operation is extra-logical; the caches are
-	% updated in place and are persistent across backtracking.
-	duplicate_term(SeenA, SeenAOriginal),
-	nb_setarg(1, SeenA, Next),
-	nb_setarg(2, SeenA, SeenAOriginal),
-
-	unify_rw_(B, Next, Target, SeenB, SeenA).
-
-unify_rw_(A, B, Target, SeenA, SeenB) :- unify_rw_(B, A, Target, SeenB, SeenA).
+unify_rw(A, B, UnifyingTerm) :-
+	MaxDepth = 256,
+	between(1, MaxDepth, N),
+	rewrite_n(N, A=B, UnifyingTerm=UnifyingTerm),
+	!.
