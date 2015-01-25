@@ -16,10 +16,10 @@
 
 
 %! rewrite(?A, ?B) is nondet
-% There exists a single rule allowing term A to be rewritten as term B.
+% There exists a single rule that, when applied once, rewrites A into B.
 %
-% @arg A is the source term.
-% @arg B is the destination term.
+% @arg A is the start term.
+% @arg B is the rewritten term.
 
 % Variables and numbers cannot be rewritten
 rewrite(A, _) :- var(A), !, fail.
@@ -31,8 +31,10 @@ rewrite(A, B) :- rewrite_args(A, B).
 
 %! rewrite_top(?A, ?B) is nondet
 % Rewrites the top-level functor in term A into term B.
+%
+% @arg A is the start term.
+% @arg B is the rewritten term.
 
-% Apply rewriting to the principal functor
 rewrite_top(A, B) :-
 	% We cannot use rules that require a term to be narrower (i.e. more
 	% instantiated). To prevent narrowing, we search for rules using a copy of
@@ -56,8 +58,10 @@ rewrite_top(A, B) :-
 
 %! rewrite_args(?A, ?B) is nondet
 % Rewrite an argument in term A. B is the rewritten form of A.
+%
+% @arg A is the start term.
+% @arg B is the rewritten term.
 
-% Apply rewriting to arguments
 rewrite_args(A, B) :-
 	A =.. [Functor|OriginalArgs],
 	select(Arg, OriginalArgs, NewArg, NewArgs),
@@ -68,6 +72,10 @@ rewrite_args(A, B) :-
 
 %! rewrite(+N:integer, ?A, ?B) is nondet
 % Rewrite term A, N times. B is the rewritten term.
+%
+% @arg N is the number of times to rewrite the term.
+% @arg A is the start term.
+% @arg B is the rewritten term.
 
 rewrite(0, A, A) :- !.
 rewrite(1, A, B) :- !, rewrite(A, B).
@@ -101,8 +109,12 @@ simplify_(Normal, Normal, _).
 
 
 
-%! unify_rw(?A, ?B, ?UnifyingTerm)
-% TODO: Document
+%! unify_rw(?A, ?B, ?UnifyingTerm) is det
+% Find a term from each of the rewrite graphs of A and B that unify.
+%
+% @arg A is the term to unify with B.
+% @arg B is the term to unify with A.
+% @arg UnifyingTerm is the form to which A and B are rewritten and unifed.
 
 unify_rw(A, A, A) :- !.
 unify_rw(A, B, UnifyingTerm) :-
@@ -113,7 +125,9 @@ unify_rw(A, B, UnifyingTerm) :-
 
 
 %! call_rw(:Goal) is nondet
-% TODO: Document
+% Call Goal. If the query does not succeed, rewrite Goal and try again.
+%
+% @arg Goal is the query to be called.
 
 call_rw(Goal) :-
 	MaxDepth = 256,
