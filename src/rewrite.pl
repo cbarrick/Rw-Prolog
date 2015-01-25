@@ -9,7 +9,7 @@
 
 :- module(rewrite, [
 	rewrite/2,
-	rewrite_n/3,
+	rewrite/3,
 	simplify/2,
 	op(990, xfx, (:=))
 ]).
@@ -66,15 +66,15 @@ rewrite_args(A, B) :-
 	A \== B.
 
 
-%! rewrite_n(+N:integer, ?A, ?B) is nondet
+%! rewrite(+N:integer, ?A, ?B) is nondet
 % Rewrite term A, N times. B is the rewritten term.
 
-rewrite_n(0, A, A) :- !.
-rewrite_n(1, A, B) :- !, rewrite(A, B).
-rewrite_n(N, A, B) :-
+rewrite(0, A, A) :- !.
+rewrite(1, A, B) :- !, rewrite(A, B).
+rewrite(N, A, B) :-
 	N0 is N - 1,
 	rewrite(A, X),
-	rewrite_n(N0, X, B).
+	rewrite(N0, X, B).
 
 
 %! simplify(?Term, ?Normal) is det
@@ -108,5 +108,5 @@ unify_rw(A, A, A) :- !.
 unify_rw(A, B, UnifyingTerm) :-
 	MaxDepth = 256,
 	between(1, MaxDepth, N),
-	rewrite_n(N, A=B, UnifyingTerm=UnifyingTerm),
+	rewrite(N, A=B, UnifyingTerm=UnifyingTerm),
 	!.
