@@ -11,6 +11,8 @@
 	rewrite/2,
 	rewrite/3,
 	simplify/2,
+	unify_rw/3,
+	call_rw/1,
 	op(990, xfx, (:=))
 ]).
 
@@ -128,6 +130,8 @@ unify_rw(A, B, UnifyingTerm) :-
 % Call Goal. If the query does not succeed, rewrite Goal and try again.
 %
 % @arg Goal is the query to be called.
+
+:- meta_predicate call_rw(0).
 
 call_rw(Goal) :-
 	MaxDepth = 256,
