@@ -110,3 +110,13 @@ unify_rw(A, B, UnifyingTerm) :-
 	between(1, MaxDepth, N),
 	rewrite(N, A=B, UnifyingTerm=UnifyingTerm),
 	!.
+
+
+%! call_rw(:Goal) is nondet
+% TODO: Document
+
+call_rw(Goal) :-
+	MaxDepth = 256,
+	between(0, MaxDepth, N),
+	rewrite(N, Goal, RWGoal),
+	call(RWGoal).
