@@ -9,6 +9,7 @@
 
 :- module(rewrite, [
 	rewrite/2,
+	rewrite_n/3,
 	simplify/2,
 	simplify_compound/2,
 	simplify_args/2,
@@ -17,7 +18,7 @@
 
 
 %! rewrite(?A, ?B) is nondet
-% There exists a rule allowing term A to be rewritten as term B.
+% There exists a single rule allowing term A to be rewritten as term B.
 %
 % @arg A is the source term.
 % @arg B is the destination term.
@@ -26,8 +27,15 @@
 rewrite(A, _) :- var(A), !, fail.
 rewrite(A, _) :- number(A), !, fail.
 
+rewrite(A, B) :- rewrite_top(A, B).
+rewrite(A, B) :- rewrite_args(A, B).
+
+
+%! rewrite_top(?A, ?B) is nondet
+% Rewrites the top-level functor in term A into term B.
+
 % Apply rewriting to the principal functor
-rewrite(A, B) :-
+rewrite_top(A, B) :-
 	% We cannot use rules that require a term to be narrower (i.e. more
 	% instantiated). To prevent narrowing, we search for rules using a copy of
 	% the term. Unusable rules will narrow the copy. However, if the copy
@@ -47,18 +55,28 @@ rewrite(A, B) :-
 		call(Body)
 	)).
 
+
+%! rewrite_args(?A, ?B) is nondet
+% Rewrite an argument in term A. B is the rewritten form of A.
+
 % Apply rewriting to arguments
-rewrite(A, B) :-
+rewrite_args(A, B) :-
 	A =.. [Functor|OriginalArgs],
-	rewrite_args_(OriginalArgs, NewArgs),
+	select(Arg, OriginalArgs, NewArg, NewArgs),
+	rewrite(Arg, NewArg),
 	B =.. [Functor|NewArgs],
 	A \== B.
 
 
-% Given a list of terms, possibly rewrite any number of them.
-rewrite_args_([], []).
-rewrite_args_([X|Xs], [X|Ys]) :- rewrite_args_(Xs, Ys).
-rewrite_args_([X|Xs], [Y|Ys]) :- rewrite(X, Y), rewrite_args_(Xs, Ys).
+%! rewrite_n(+N:integer, ?A, ?B) is nondet
+% Rewrite term A, N times. B is the rewritten term.
+
+rewrite_n(0, A, A) :- !.
+rewrite_n(1, A, B) :- !, rewrite(A, B).
+rewrite_n(N, A, B) :-
+	N0 is N - 1,
+	rewrite(A, X),
+	rewrite_n(N0, X, B).
 
 
 %! simplify(?Term, ?Normal) is det
