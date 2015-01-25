@@ -11,8 +11,6 @@
 	rewrite/2,
 	rewrite_n/3,
 	simplify/2,
-	simplify_compound/2,
-	simplify_args/2,
 	op(990, xfx, (:=))
 ]).
 
@@ -80,51 +78,27 @@ rewrite_n(N, A, B) :-
 
 
 %! simplify(?Term, ?Normal) is det
-% Searches the graph of rewrite rules for the normal form of a term. If the
-% graph contains multiple normal forms, only the first is found. For compound
-% terms, the arguments are normalized before the term itself.
+% Finds the normal form of Term. The normal form is defined as the first form
+% found in a depth-first search of the rewrite graph such that it cannot be
+% rewritten into a previously unseen term.
 %
 % @arg Term is the initial term.
 % @arg Normal is the normal form of Term.
 
 simplify(Term, Term) :- var(Term), !.
 simplify(Term, Term) :- number(Term), !.
-simplify(Term, Normal) :- simplify_compound(Term, Normal).
+simplify(Term, Normal) :- simplify_(Term, Normal, [Term]).
 
-
-%! simplify_compound(?Term:compound, ?Normal) is det
-% Like `simplify/2` with the constraint that Term must be a compound.
-%
-% @arg Term is the initial term.
-% @arg Normal is the normal form of Term.
-
-simplify_compound(Term, Normal) :-
-	simplify_compound(Term, Normal, [Term]).
-
-simplify_compound(Normal, Normal, _) :-
-	\+ rewrite(Normal, _),
-	!.
-
-simplify_compound(Term, Normal, Seen) :-
+simplify_(Term, Normal, Seen) :-
 	rewrite(Term, Next),
 	\+ (
 		member(Previous, Seen),
 		Next == Previous
 	),
 	!,
-	simplify_compound(Next, Normal, [Next|Seen]).
+	simplify_(Next, Normal, [Next|Seen]).
+simplify_(Normal, Normal, _).
 
-
-%! simplify_args(?Term:compound, ?NormalArgs:compound) is det
-% Like `simplify_compound/2` but only simplifies the arguments of the term.
-
-simplify_args(Term, NormalArgs) :-
-	compound(Term),
-	Term =.. [Functor|Args1],
-	same_length(Args1, Args2),
-	maplist(simplify, Args1, Args2),
-	NormalArgs =.. [Functor|Args2],
-	!.
 
 
 %! unify_rw(?A, ?B, ?UnifyingTerm)
