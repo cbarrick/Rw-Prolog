@@ -120,7 +120,7 @@ simplify_(Normal, Normal, _).
 
 unify_rw(A, A, A) :- !.
 unify_rw(A, B, UnifyingTerm) :-
-	MaxDepth = 256,
+	MaxDepth = 1024,
 	between(1, MaxDepth, N),
 	rewrite(N, A=B, UnifyingTerm=UnifyingTerm),
 	!.
@@ -134,7 +134,7 @@ unify_rw(A, B, UnifyingTerm) :-
 :- meta_predicate call_rw(:).
 
 call_rw(Goal) :-
-	MaxDepth = 256,
+	MaxDepth = 1024,
 	between(0, MaxDepth, N),
 	rewrite(N, Goal, RWGoal),
 	catch((
