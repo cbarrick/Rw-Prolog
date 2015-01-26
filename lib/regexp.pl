@@ -36,13 +36,13 @@ regexp(Exp, NFA)::match([_|T], State) := regexp(Exp, NFA)::match(T, Next) :-
 regexp(Exp, NFA)::match(Input, State) := regexp(Exp, NFA)::match(Input, Next) :-
 	member(edge(State,Next,null), NFA).
 
-regexp(_,_)::match(_,_) := fail.
+regexp(_,_)::match(_,_) := _ :- !, fail.
 
 
 % Compiler
 % -------------------------
 
-compile([Char], [edge(Start,Accept,Char)], Start, Accept).
+compile(literal(Char), [edge(Start,Accept,Char)], Start, Accept).
 
 compile(wild, [edge(Start,Accept,wild)], Start, Accept).
 
@@ -107,7 +107,7 @@ regexp_phrase(4, X) -->
 	")".
 
 % Precedence 5 (lowest): Single Characters
-regexp_phrase(5, [Char]) --> string_without("^$.|{}[]()*+?\\", [Char]).
+regexp_phrase(5, literal(Char)) --> string_without("^$.|{}[]()*+?\\", [Char]).
 regexp_phrase(5, wild)   --> ".".
 
 % All rules at a given precedence are also rules at lower precedence.
