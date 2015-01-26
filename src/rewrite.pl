@@ -131,10 +131,14 @@ unify_rw(A, B, UnifyingTerm) :-
 %
 % @arg Goal is the query to be called.
 
-:- meta_predicate call_rw(0).
+:- meta_predicate call_rw(:).
 
 call_rw(Goal) :-
 	MaxDepth = 256,
 	between(0, MaxDepth, N),
 	rewrite(N, Goal, RWGoal),
-	call(RWGoal).
+	catch((
+		call(RWGoal)
+	), error(existence_error(procedure,_),_), (
+		fail
+	)).
