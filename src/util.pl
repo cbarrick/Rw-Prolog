@@ -1,3 +1,7 @@
+:- module(util, [
+	multi_subset/2
+]).
+
 %! multi_subset(?Sub:list, +List:list) is nondet
 % True when Sub is a multi-subset of List. That is, all elements of Sub are
 % also elements of List; elements of Sub occur no more often than they occur
