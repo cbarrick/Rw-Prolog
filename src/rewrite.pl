@@ -90,6 +90,7 @@ rewrite_top(A, B) :-
 % @arg B is the rewritten term.
 
 rewrite_args(A, B) :-
+	compound(A),
 	A =.. [Functor|OriginalArgs],
 	select(Arg, OriginalArgs, NewArg, NewArgs),
 	rewrite(1, Arg, NewArg),
