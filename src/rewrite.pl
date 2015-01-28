@@ -18,7 +18,7 @@
 
 
 %! rewrite(?A, ?B) is nondet
-% There exists a single rule that, when applied once, rewrites A into B.
+% There exists a rewrite path from A to B.
 %
 % @arg A is the start term.
 % @arg B is the rewritten term.
@@ -27,8 +27,33 @@
 rewrite(A, _) :- var(A), !, fail.
 rewrite(A, _) :- number(A), !, fail.
 
-rewrite(A, B) :- rewrite_top(A, B).
-rewrite(A, B) :- rewrite_args(A, B).
+% Search for rewrite path of length at most 1024
+rewrite(A, B) :-
+	rewrite(_, A, B).
+
+
+%! rewrite(+N:integer, ?A, ?B) is nondet
+% There exists a rewrite path of length N from A to B.
+%
+% @arg N is the number of times the term is rewritten.
+% @arg A is the start term.
+% @arg B is the rewritten term.
+
+rewrite(1, A, B) :- rewrite_top(A, B).
+rewrite(1, A, B) :- rewrite_args(A, B).
+rewrite(N, A, B) :-
+	between(2, 1024, N),
+	flag(rewrite_count(A), _, 0),
+	N0 is N - 1,
+	(
+		rewrite(1, A, X),
+		rewrite(N0, X, B),
+		flag(rewrite_count(A), Count, Count+1)
+	;
+		flag(rewrite_count(A), Count, Count),
+		Count = 0,
+		!, fail
+	).
 
 
 %! rewrite_top(?A, ?B) is nondet
@@ -67,24 +92,9 @@ rewrite_top(A, B) :-
 rewrite_args(A, B) :-
 	A =.. [Functor|OriginalArgs],
 	select(Arg, OriginalArgs, NewArg, NewArgs),
-	rewrite(Arg, NewArg),
+	rewrite(1, Arg, NewArg),
 	B =.. [Functor|NewArgs],
 	A \== B.
-
-
-%! rewrite(+N:integer, ?A, ?B) is nondet
-% Rewrite term A, N times. B is the rewritten term.
-%
-% @arg N is the number of times to rewrite the term.
-% @arg A is the start term.
-% @arg B is the rewritten term.
-
-rewrite(0, A, A) :- !.
-rewrite(1, A, B) :- !, rewrite(A, B).
-rewrite(N, A, B) :-
-	N0 is N - 1,
-	rewrite(A, X),
-	rewrite(N0, X, B).
 
 
 %! simplify(?Term, ?Normal) is det
@@ -100,7 +110,7 @@ simplify(Term, Term) :- number(Term), !.
 simplify(Term, Normal) :- simplify_(Term, Normal, [Term]).
 
 simplify_(Term, Normal, Seen) :-
-	rewrite(Term, Next),
+	rewrite(1, Term, Next),
 	\+ (
 		member(Previous, Seen),
 		Next == Previous
@@ -120,9 +130,7 @@ simplify_(Normal, Normal, _).
 
 unify_rw(A, A, A) :- !.
 unify_rw(A, B, UnifyingTerm) :-
-	MaxDepth = 1024,
-	between(1, MaxDepth, N),
-	rewrite(N, A=B, UnifyingTerm=UnifyingTerm),
+	rewrite(A=B, UnifyingTerm=UnifyingTerm),
 	!.
 
 
@@ -134,9 +142,7 @@ unify_rw(A, B, UnifyingTerm) :-
 :- meta_predicate call_rw(:).
 
 call_rw(Goal) :-
-	MaxDepth = 1024,
-	between(0, MaxDepth, N),
-	rewrite(N, Goal, RWGoal),
+	rewrite(Goal, RWGoal),
 	catch((
 		call(RWGoal)
 	), error(existence_error(procedure,_),_), (
