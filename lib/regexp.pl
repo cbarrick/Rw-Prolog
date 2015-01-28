@@ -6,12 +6,18 @@
 
 %! regexp(+Expression)
 % Terms of this form represent regular expressions. `Expression` is the regexp
-% as a string or code list.
+% as an atom or code list.
 %
 % Users are expected to write terms in this form, but the methods are defined
 % on compiled terms of the form `regexp(Expression, NFA)`. This rewrite rule
 % allows the user form to be rewritten into the compiled form.
 
+% Convert Expression atom to codes
+regexp(ExpressionAtom) := regexp(ExpressionCodes) :-
+	atom(ExpressionAtom),
+	atom_codes(ExpressionAtom, ExpressionCodes).
+
+% Compile the regexp
 regexp(Expression) := regexp(Expression, NFA) :-
 	phrase(regexp_phrase(Tree), Expression, []),
 	compile(Tree, NFA).
@@ -38,6 +44,11 @@ regexp(Expression) := regexp(Expression, NFA) :-
 %
 % @see http://swtch.com/~rsc/regexp/regexp1.html
 
+% Convert Input atom to codes
+regexp(Exp, NFA)::match(InputAtom) := regexp(Exp, NFA)::match(InputCodes) :-
+	atom(InputAtom),
+	atom_codes(InputAtom, InputCodes).
+
 % Expand to the form `regexp(Exp, NFA)::match(Input, CurrentState)`
 regexp(Exp, NFA)::match(Input) := regexp(Exp, NFA)::match(Input, StartState) :-
 	setof(Q, null_path(NFA, start, Q), StartState).
@@ -56,8 +67,9 @@ regexp(Exp, NFA)::match([H|T], State) := regexp(Exp, NFA)::match(T, Next) :-
 	), Next),
 	!.
 
-% If no rewrites can be performed, fail
-regexp(_,_)::match(_,_) := fail.
+% % If no rewrites can be performed, fail.
+% % Currently this rule is disabled until I get cuts working in rewrite rules.
+% regexp(_,_)::match(_,_) := false.
 
 
 %! null_path(+NFA, +Source, ?To) is nondet
