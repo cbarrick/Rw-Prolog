@@ -7,14 +7,12 @@
 % @author Chris Barrick
 % @license MIT
 
-:- module(rewrite, [
-	rewrite/2,
-	rewrite/3,
-	simplify/2,
-	unify_rw/3,
-	call_rw/1,
-	op(990, xfx, (:=))
-]).
+:- expects_dialect(swi).
+
+:- use_module('util').
+
+:- op(990, xfx, (:=)).
+:- multifile (:=)/2.
 
 
 %! rewrite(?A, ?B) is nondet
@@ -22,6 +20,8 @@
 %
 % @arg A is the start term.
 % @arg B is the rewritten term.
+
+:- table rewrite/2.
 
 % Variables and numbers cannot be rewritten
 rewrite(A, _) :- var(A), !, fail.
@@ -92,7 +92,7 @@ rewrite_top(A, B) :-
 rewrite_args(A, B) :-
 	compound(A),
 	A =.. [Functor|OriginalArgs],
-	select(Arg, OriginalArgs, NewArg, NewArgs),
+	replacen(1, [Arg], OriginalArgs, [NewArg], NewArgs),
 	rewrite(1, Arg, NewArg),
 	B =.. [Functor|NewArgs],
 	A \== B.
