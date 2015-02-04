@@ -1,5 +1,6 @@
 :- module(util, [
-	multi_subset/2
+	multi_subset/2,
+	replacen/5
 ]).
 
 %! multi_subset(?Sub:list, +List:list) is nondet
@@ -20,3 +21,19 @@ multi_subset([E|NTail], [E|Tail]):-
 	multi_subset(NTail, Tail).
 multi_subset(NTail, [_|Tail]):-
 	multi_subset(NTail, Tail).
+
+
+%! replacen(+N:integer, ?Subset:list, ?Original:list, ?NewSubset:list, ?New:list)
+% Like SWI's select/4. The New list is like the Original list with an ordered
+% Subset of N elements replaced by the elements of NewSubset.
+
+replacen(0, [], X, [], X) :- !.
+
+replacen(N, [H0|Subset], [H0|Original], [H1|NewSubset], [H1|New]) :-
+	N > 0,
+	N0 is N - 1,
+	replacen(N0, Subset, Original, NewSubset, New).
+
+replacen(N, Subset, [H0|Original], NewSubset, [H0|New]) :-
+	N > 0,
+	replacen(N, Subset, Original, NewSubset, New).
