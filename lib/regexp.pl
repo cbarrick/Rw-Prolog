@@ -1,8 +1,9 @@
-:- use_module(library(dcg/basics)).
+:- use_module('../src/swi/dcg/basics').
 :- use_module('../src/rewrite').
 :- use_module('../src/util').
 
 :- op(550, xfy, (::)).
+
 
 %! regexp(+Expression)
 % Terms of this form represent regular expressions. `Expression` is the regexp
@@ -19,8 +20,10 @@ regexp(ExpressionAtom) := regexp(ExpressionCodes) :-
 
 % Compile the regexp
 regexp(Expression) := regexp(Expression, NFA) :-
-	phrase(regexp_phrase(Tree), Expression, []),
-	compile(Tree, NFA).
+	once((
+		phrase(regexp_phrase(Tree), Expression, []),
+		compile(Tree, NFA)
+	)).
 
 
 %! regexp(+Expression, +NFA)::match(+Input)
@@ -47,7 +50,8 @@ regexp(Expression) := regexp(Expression, NFA) :-
 % Convert Input atom to codes
 regexp(Exp, NFA)::match(InputAtom) := regexp(Exp, NFA)::match(InputCodes) :-
 	atom(InputAtom),
-	atom_codes(InputAtom, InputCodes).
+	atom_codes(InputAtom, InputCodes),
+	!.
 
 % Expand to the form `regexp(Exp, NFA)::match(Input, CurrentState)`
 regexp(Exp, NFA)::match(Input) := regexp(Exp, NFA)::match(Input, StartState) :-
