@@ -21,8 +21,6 @@
 % @arg A is the start term.
 % @arg B is the rewritten term.
 
-:- table rewrite/2.
-
 % Variables and numbers cannot be rewritten
 rewrite(A, _) :- var(A), !, fail.
 rewrite(A, _) :- number(A), !, fail.
@@ -38,6 +36,8 @@ rewrite(A, B) :-
 % @arg N is the number of times the term is rewritten.
 % @arg A is the start term.
 % @arg B is the rewritten term.
+
+:- table rewrite/3.
 
 rewrite(1, A, B) :- rewrite_top(A, B).
 rewrite(1, A, B) :- rewrite_args(A, B).
