@@ -22,7 +22,7 @@ regexp(ExpressionAtom) := regexp(ExpressionCodes) :-
 regexp(Expression) := regexp(Expression, NFA) :-
 	once((
 		phrase(regexp_phrase(Tree), Expression, []),
-		compile(Tree, NFA)
+		compile_regexp(Tree, NFA)
 	)).
 
 
@@ -55,6 +55,7 @@ regexp(Exp, NFA)::match(InputAtom) := regexp(Exp, NFA)::match(InputCodes) :-
 
 % Expand to the form `regexp(Exp, NFA)::match(Input, CurrentState)`
 regexp(Exp, NFA)::match(Input) := regexp(Exp, NFA)::match(Input, StartState) :-
+	list(Input), % make sure Input has been converted into a codes list
 	setof(Q, null_path(NFA, start, Q), StartState).
 
 % Terminate whenever we're in an accept state
@@ -97,29 +98,31 @@ null_path(NFA, Source, To, Seen) :-
 % Compiler
 % -------------------------
 
-compile(Tree, NFA) :- compile(Tree, NFA, start, accept).
+compile_regexp(_, _) :- write('-----COMPILING REGEXP-----\n'), fail.
 
-compile(literal(Char), [edge(Start,Accept,Char)], Start, Accept).
+compile_regexp(Tree, NFA) :- compile_regexp(Tree, NFA, start, accept).
 
-compile(wild, [edge(Start,Accept,wild)], Start, Accept).
+compile_regexp(literal(Char), [edge(Start,Accept,Char)], Start, Accept).
 
-compile(or(X,Y), NFA, Start, Accept) :-
-	compile(X, NFA_X, Start, Accept),
-	compile(Y, NFA_Y, Start, Accept),
+compile_regexp(wild, [edge(Start,Accept,wild)], Start, Accept).
+
+compile_regexp(or(X,Y), NFA, Start, Accept) :-
+	compile_regexp(X, NFA_X, Start, Accept),
+	compile_regexp(Y, NFA_Y, Start, Accept),
 	append(NFA_X, NFA_Y, NFA).
 
-compile(and(X,Y), NFA, Start, Accept) :-
+compile_regexp(and(X,Y), NFA, Start, Accept) :-
 	gensym(state, Q1),
-	compile(X, NFA_X, Start, Q1),
-	compile(Y, NFA_Y, Q1, Accept),
+	compile_regexp(X, NFA_X, Start, Q1),
+	compile_regexp(Y, NFA_Y, Q1, Accept),
 	append(NFA_X, NFA_Y, NFA).
 
-compile(maybe(X), NFA, Start, Accept) :-
-	compile(X, NFA_X, Start, Accept),
+compile_regexp(maybe(X), NFA, Start, Accept) :-
+	compile_regexp(X, NFA_X, Start, Accept),
 	NFA = [edge(Start,Accept,null)|NFA_X].
 
-compile(star(X), NFA, Start, Accept) :-
-	compile(X, NFA_X, Start, Start),
+compile_regexp(star(X), NFA, Start, Accept) :-
+	compile_regexp(X, NFA_X, Start, Start),
 	NFA = [edge(Start,Accept,null)|NFA_X].
 
 
