@@ -9,6 +9,8 @@
 
 :- expects_dialect(swi).
 
+:- use_module(library(nb_set)).
+
 :- use_module('util').
 
 :- op(990, xfx, (:=)).
@@ -23,25 +25,56 @@
 
 % :- table rewrite/2.
 
-rewrite(X, X).
-rewrite(A, B) :- rewrite_top(A, X),  rewrite(X, B).
-rewrite(A, B) :- rewrite_args(A, X), rewrite(X, B).
+rewrite(Source, Dest) :- distinct(rewrite_(Source, Dest)).
 
 
-rewrite_top(A, B) :-
-	copy_term(A, A_Varient),
-	clause(A_Varient := B, Body),
-	A =@= A_Varient,
-	A = A_Varient,
-	call_rw(Body).
+rewrite_(Source, Dest) :- rewrite_(Source, Dest, [Source]).
+
+rewrite_(Source, Dest, [H|T]) :-
+	empty_nb_set(NewTermsSet),
+	(
+		rewrite_shallowest(H, Dest, _),
+		add_nb_set(Dest, NewTermsSet, true)
+	;
+		nb_set_to_list(NewTermsSet, NewTerms),
+		append(T, NewTerms, NextQueue),
+		!,
+		rewrite_(Source, Dest, NextQueue)
+	).
 
 
-rewrite_args(A, B) :-
-	compound(A),
-	A =.. [Functor|OriginalArgs],
-	maplist(rewrite, OriginalArgs, NewArgs),
-	OriginalArgs \= NewArgs,
-	B =.. [Functor|NewArgs].
+rewrite_shallowest(Source, Dest, Depth) :-
+	term_depth(Source, MaxDepth),
+	rewrite_shallowest(0, MaxDepth, Source, Dest, Depth).
+
+rewrite_shallowest(CurrentDepth, MaxDepth, Source, Dest, Depth) :-
+	(
+		Depth = CurrentDepth,
+		rewrite_depth(CurrentDepth, Source, Dest)
+	*->
+		true
+	;
+		CurrentDepth < MaxDepth,
+		NextDepth is CurrentDepth + 1,
+		rewrite_shallowest(NextDepth, MaxDepth, Source, Dest, Depth)
+	).
+
+
+rewrite_depth(0, Source, Dest) :-
+	nonvar(Source),
+	once(clause((Source := Dest), _)),
+	call_rw((Source := Dest)).
+
+rewrite_depth(N, Source, Dest) :-
+	compound(Source),
+	N > 0,
+	N0 is N - 1,
+	Source =.. [Functor|SourceArgs],
+	same_length(SourceArgs, DestArgs),
+	Dest =.. [Functor|DestArgs],
+	select(Arg, SourceArgs, RwArg, DestArgs),
+	rewrite_depth(N0, Arg, RwArg).
+
 
 
 %! call_rw(:Goal) is nondet
@@ -51,9 +84,37 @@ rewrite_args(A, B) :-
 
 :- meta_predicate call_rw(:).
 
-call_rw(M:(A,B)) :- !, call_rw(M:A), call_rw(M:B).
-call_rw(M:(A;B)) :- !, call_rw(M:A); call_rw(M:B).
+call_rw(Goal) :-
+	catch((
+		call_rw_(Goal)
+	), cut, (
+		fail
+	)).
 
-call_rw(M:Goal) :-
-	rewrite(Goal, RwGoal),
-	call(M:RwGoal).
+call_rw_(M:(A,B)) :- !,
+	call_rw_(M:A),
+	call_rw_(M:B).
+
+call_rw_(M:(A;B)) :- !,
+	(
+		call_rw_(M:A)
+	;
+		call_rw_(M:B)
+	).
+
+call_rw_(_M:(!)) :- !,
+	(
+		true
+	;
+		throw(cut)
+	).
+
+call_rw_(Goal) :-
+	(
+		call(Goal)
+	*->
+		true
+	;
+		rewrite(Goal, RwGoal),
+		call_rw_(RwGoal)
+	).
