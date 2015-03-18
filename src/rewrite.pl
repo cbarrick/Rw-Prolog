@@ -23,21 +23,20 @@
 % @arg A is the start term.
 % @arg B is the rewritten term.
 
-% :- table rewrite/2.
-
 rewrite(Source, Dest) :- distinct(rewrite_(Source, Dest)).
 
 
 rewrite_(Source, Dest) :- rewrite_(Source, Dest, [Source]).
 
 rewrite_(Source, Dest, [H|T]) :-
-	empty_nb_set(NewTermsSet),
+	empty_nb_set(SuccessfulRules),
 	(
 		rewrite_shallowest(H, Dest, _),
-		add_nb_set(Dest, NewTermsSet, true)
+		add_nb_set((H:=Dest), SuccessfulRules, true)
 	;
-		nb_set_to_list(NewTermsSet, NewTerms),
-		append(T, NewTerms, NextQueue),
+		nb_set_to_list(SuccessfulRules, EdgeList),
+		rewrite_collectdests(H, EdgeList, DestList),
+		append(T, DestList, NextQueue),
 		!,
 		rewrite_(Source, Dest, NextQueue)
 	).
@@ -62,8 +61,8 @@ rewrite_shallowest(CurrentDepth, MaxDepth, Source, Dest, Depth) :-
 
 rewrite_depth(0, Source, Dest) :-
 	nonvar(Source),
-	once(clause((Source := Dest), _)),
-	call_rw((Source := Dest)).
+	clause((Source := Dest), Body),
+	call_rw(Body).
 
 rewrite_depth(N, Source, Dest) :-
 	compound(Source),
@@ -74,6 +73,11 @@ rewrite_depth(N, Source, Dest) :-
 	Dest =.. [Functor|DestArgs],
 	select(Arg, SourceArgs, RwArg, DestArgs),
 	rewrite_depth(N0, Arg, RwArg).
+
+
+rewrite_collectdests(_, [], []) :- !.
+rewrite_collectdests(Source, [(Source:=Dest)|EdgeList], [Dest|DestList]) :-
+	rewrite_collectdests(Source, EdgeList, DestList).
 
 
 
