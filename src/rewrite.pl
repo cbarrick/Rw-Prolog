@@ -91,13 +91,21 @@ rewrite_collectdests(Source, [(Source:=Dest)|EdgeList], [Dest|DestList]) :-
 call_rw(Goal) :-
 	catch((
 		call_rw_(Goal)
-	), cut, (
-		fail
+	), cut(Resume, Goal), (
+		call_rw(Resume)
 	)).
 
 call_rw_(M:(A,B)) :- !,
-	call_rw_(M:A),
-	call_rw_(M:B).
+	catch((
+		call_rw_(M:A)
+	), cut(Resume, (M:A)), (
+		throw( cut((Resume,(M:B)), M:(A,B)) )
+	)),
+	catch((
+		call_rw_(M:B)
+	), cut(Resume, (M:B)), (
+		throw( cut(Resume, M:(A,B)) )
+	)).
 
 call_rw_(M:(A;B)) :- !,
 	(
@@ -106,12 +114,8 @@ call_rw_(M:(A;B)) :- !,
 		call_rw_(M:B)
 	).
 
-call_rw_(_M:(!)) :- !,
-	(
-		true
-	;
-		throw(cut)
-	).
+call_rw_(M:(!)) :- !,
+	throw( cut(true, M:(!)) ).
 
 call_rw_(Goal) :-
 	(
