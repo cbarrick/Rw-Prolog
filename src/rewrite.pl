@@ -217,31 +217,43 @@ call_rw_(_, M:list(X))   :- !, freeze(X, M:member(X,[[],[_|_]])).
 % kinds of queries that get rewritten if they fail.
 
 call_rw_(Witness, M:Goal) :-
-	rewrite(Goal, RwGoal),
+	(
+		call_rw_regular(Witness, M:Goal)
+	*->true;
+		Success = bool(false),
+		rewrite(Goal, RwGoal),
+		(
+			call_rw_regular(Witness, M:RwGoal),
+			nb_setarg(1, Success, true)
+		;
+			Success == bool(true) -> !
+		)
+	).
+
+call_rw_regular(Witness, M:Goal) :-
 	catch((catch((
-		call_rw_expand(Witness, M:RwGoal)
+		% Expand the goal and evaluate the body in the meta-language
+		catch((
+			clause(M:Goal, Body),
+			once((
+				predicate_property(M:Goal, imported_from(BodyModule))
+			;
+				BodyModule = M
+			;
+				BodyModule = user
+			)),
+			call_rw_(Witness, BodyModule:Body)
+		), cut(Witness, Resume), (
+			call_rw(Goal, Resume)
+		))
 
 	), error(permission_error(access,private_procedure,_),_), (
 		% If there is a permission error,
 		% we must let the underlying system handle the query.
-		call(M:RwGoal)
+		call(M:Goal)
 
 	))), error(type_error(_,_),_), (
 		% Ignore type errors.
 		% Assume the query can be rewritten into valid types.
 		fail
-	)).
-
-
-call_rw_expand(Witness, M:Goal) :-
-	catch((
-		clause(M:Goal, Body),
-		once((
-			predicate_property(M:Goal, imported_from(BodyModule))
-		;
-			BodyModule = user
-		)),
-		call_rw_(Witness, BodyModule:Body)
-	), cut(Witness, Resume), (
-		call_rw(Goal, Resume)
 	)).
