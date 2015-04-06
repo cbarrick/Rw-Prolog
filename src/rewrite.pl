@@ -13,115 +13,119 @@
 
 :- use_module('util').
 
-:- op(990, xfx, (:=)).
-:- op(990, xfx, (:=>)).
+:- dynamic (:=)/2.
 :- multifile (:=)/2.
+:- public (:=)/2.
 
 
-%! rewrite(Source, ?Destination) is nondet
-%
-% There exists a rewrite path from Source to Destination.
-%
-% @arg Source is the term from which to start the search.
-% @arg Destination is the result of the search.
-
-rewrite(X,X).
-rewrite(Source, Dest) :- distinct(rewrite_(Source, Dest)).
-
-rewrite_(Source, Dest) :-
-	copy_term_nat(Source, S),
-	copy_term_nat(Dest, D),
-	rewrite_(S, D, [S]),
-	Source=S,
-	Dest=D.
-
-rewrite_(Source, Dest, [H|T]) :-
-	empty_nb_set(SuccessfulRules),
-	(
-		rewrite_once(H, Dest, _),
-		add_nb_set((H:=Dest), SuccessfulRules)
-	;
-		nb_set_to_list(SuccessfulRules, EdgeList),
-		rewrite_collectdests(H, EdgeList, DestList),
-		append(T, DestList, NextQueue),
-		!,
-		rewrite_(Source, Dest, NextQueue)
-	).
-
-rewrite_collectdests(_, [], []) :- !.
-rewrite_collectdests(Source, [(Source:=Dest)|EdgeList], [Dest|DestList]) :-
-	rewrite_collectdests(Source, EdgeList, DestList).
-
-
-%! rewrite_once(?Source, ?Destination, -Depth) is nondet
-%
-% The Source term can be rewritten into the Destination term by applying a
-% rewrite rule exactly once at the shallowest possible depth of the Source
-% term's syntax tree. If multiple rewrites are possible at the same depth,
-% each rewrite is chosen nondeterministicly.
-%
-% @arg Source is the term from which to start the search.
-% @arg Destination is the result of the search.
-% @arg Depth is the depth of the Source term at which the rewrite was applied.
-
-rewrite_once(Source, Dest, Depth) :-
-	term_depth(Source, MaxDepth),
-	rewrite_once(0, MaxDepth, Source, Dest, Depth).
-
-rewrite_once(CurrentDepth, MaxDepth, Source, Dest, Depth) :-
-	(
-		Depth = CurrentDepth,
-		rewrite_depth(Source, Dest, Depth)
-	*->true;
-		CurrentDepth < MaxDepth,
-		NextDepth is CurrentDepth + 1,
-		rewrite_once(NextDepth, MaxDepth, Source, Dest, Depth)
-	).
-
-
-%! rewrite_depth(?Source, ?Destination, ?Depth) is nondet
-%
-% The Source term can be rewritten into the Destination term by applying
-% exactly one rewrite rule at the particular Depth of the Source term's syntax
-% tree.
-%
-% @arg Source is the term from which to start the search.
-% @arg Destination is the result of the search.
-% @arg Depth is the depth of the Source term at which the rewrite was applied.
-
-rewrite_depth(Source, Dest, 0) :- !,
-	nonvar(Source),
-	copy_term(Source,S),
-	catch((
-		clause(S:=Dest, Body),
-		call_rw_(S:=Dest, Body)
-	), cut(S:=Dest, Resume), (
-		call_rw(S:=Dest, Resume)
-	)),
-	subsumes_term(S,Source),
-	S=Source.
-
-rewrite_depth(Source, Dest, Depth) :-
-	compound(Source),
-	between(1, 256, Depth),
-	Depth0 is Depth - 1,
-	Source =.. [Functor|SourceArgs],
-	same_length(SourceArgs, DestArgs),
-	Dest =.. [Functor|DestArgs],
-	select(Arg, SourceArgs, RwArg, DestArgs),
-	rewrite_depth(Arg, RwArg, Depth0).
-
-
-%! simplify(?Term, ?Normal) is det
+%! redex(@Redex, ?Replacement, ?Rule)
 %
 % TODO: Document
 
-simplify(Term, Norm) :-
-	rewrite_once(Term, Next, _),
-	!,
-	simplify(Next, Norm).
+redex(Redex, Replacement, (Pattern:=Template:-Condition)) :-
+	copy_term_nat(Redex, Redex_nat),
+	copy_term_nat(Replacement, Replacement_nat),
+	copy_term(Redex_nat, Pattern),
+	copy_term(Replacement_nat, Template),
+	clause(Pattern:=Template, Condition),
+	subsumes_term(Pattern, Redex_nat),
+	call_rw(Condition, _),
+	subsumes_term(Pattern, Redex_nat),
+	Pattern = Redex_nat,
+	Redex = Redex_nat,
+	Template = Replacement_nat,
+	Replacement = Replacement_nat.
 
-simplify(Norm, Norm).
+
+%! reduce(@Source, ?Dest)
+%! reduce(@Source, ?Dest, ?Rule, ?Position)
+%
+% TODO: Document
+
+reduce(Source, Dest) :- reduce(Source, Dest, _, _).
+
+reduce(Source, Dest, Rule, []) :-
+	nonvar(Source),
+	distinct(redex(Source, Dest, Rule)).
+
+reduce(Source, Dest, Rule, [H|T]) :-
+	nonvar(Source),
+	Source =.. [Functor|Args],
+	length(Args, L),
+	length(DestArgs, L),
+	Dest =.. [Functor|DestArgs],
+	between(1,L,H),
+	H0 is H-1,
+	nth0(H0, Args, NextSource, Same),
+	nth0(H0, DestArgs, NextDest, Same),
+	reduce(NextSource, NextDest, Rule, T).
+
+
+%! reduce_outermost(@Source, ?Dest)
+%! reduce_outermost(@Source, ?Dest, ?Rule, ?Position)
+%
+% TODO: Document
+
+reduce_outermost(Source, Dest) :- reduce_outermost(Source, Dest, _, _).
+
+reduce_outermost(Source, Dest, Rule, Position) :-
+	nonvar(Source),
+	(
+		distinct(redex(Source, Dest, Rule)),
+		Position = []
+	*->true;
+		Position = [H|T],
+		Source =.. [Functor|Args],
+		length(Args, L),
+		length(DestArgs, L),
+		Dest =.. [Functor|DestArgs],
+		between(1,L,H),
+		H0 is H-1,
+		nth0(H0, Args, NextSource, Same),
+		nth0(H0, DestArgs, NextDest, Same),
+		reduce_outermost(NextSource, NextDest, Rule, T)
+	).
+
+
+%! simplify(@Term, ?Simple)
+%
+% TODO: Document
+
+simplify(Simple, Simple) :- simplify_terminal(Simple).
+simplify(Term,   Simple) :- simplify(Term, Simple, [Term]).
+
+simplify(Term, Simple, [H|T]) :-
+	empty_nb_set(NewForms),
+	(
+		reduce_outermost(H, Next),
+		add_nb_set((Term:=Next), NewForms, true),
+		simplify_terminal(Next),
+		Simple = Next
+	;
+		simplify_set_to_list(Term, NewForms, NewFormsList),
+		append(T, NewFormsList, NewQueue),
+		simplify(Term, Simple, NewQueue)
+	).
+
+simplify_terminal(Simple) :-
+	predicate_property(Simple, visible),
+	catch((
+		clause(Simple, Body)
+	*->
+		call_rw(Body, _)
+	;
+		call(Simple)
+	), error(permission_error(access,_,_),_), (
+		call(Simple)
+	)).
+
+simplify_set_to_list(Witness, nb_set(S), List) :-
+	nb_set_to_list(nb_set(S), L),
+	simplify_set_to_list(Witness, L, List).
+simplify_set_to_list(Witness, [Witness:=Term|L], [Term|List]) :-
+	simplify_set_to_list(Witness, L, List).
+simplify_set_to_list(_, [], []).
+
 
 
 %! call_rw(:Goal) is nondet
@@ -133,17 +137,20 @@ simplify(Norm, Norm).
 % @arg Goal is the query to be called.
 
 :- meta_predicate call_rw(:).
-:- meta_predicate call_rw(?,:).
-:- meta_predicate call_rw_(?,:).
-:- meta_predicate call_rw_expand(?,:).
+:- meta_predicate call_rw(:,-).
+:- meta_predicate call_rw(?,:,-).
+:- meta_predicate call_rw_(?,:,-).
+:- meta_predicate call_rw_expand(?,:,-).
 
-call_rw(Goal) :- call_rw(Goal, Goal).
+call_rw(Goal) :- call_rw(Goal, _).
 
-call_rw(Witness, Goal) :-
+call_rw(Goal, Result) :- call_rw(Goal, Goal, Result).
+
+call_rw(Witness, Goal, Result) :-
 	catch((
-		call_rw_(Witness, Goal)
-	), cut(Witness, Resume), (
-		call_rw(Witness, Resume)
+		call_rw_(Witness, Goal, Result)
+	), cut(Witness, Resume, Result), (
+		call_rw(Witness, Resume, Result)
 	)).
 
 
@@ -154,8 +161,8 @@ call_rw(Witness, Goal) :-
 % is a query describing to the top-level how to recover, i.e. what remains of
 % the original goal after the cut is applied.
 
-call_rw_(Witness, _M:(!)) :- !,
-	throw( cut(Witness, true) ).
+call_rw_(Witness, _M:(!), (!)) :- !,
+	throw( cut(Witness, true, (!)) ).
 
 
 % Control Predicates
@@ -165,40 +172,47 @@ call_rw_(Witness, _M:(!)) :- !,
 % by the individual sub-queries and throw a new cut describing how the overall
 % query is affected.
 %
-% TODO: Implication (`->`) and the soft-cut (`*->`)
+% TODO: soft-cuts (`*->`)
 
-call_rw_(Witness, M:(A->B)) :- !,
-	call_rw_(Witness, M:(A->B;fail)).
+call_rw_(Witness, M:(A->B), Result) :- !,
+	call_rw_(Witness, M:(A->B;fail), Result).
 
-call_rw_(Witness, M:(A->B;C)) :- !,
+call_rw_(Witness, M:(A->B;C), (X->Y;Z)) :- !,
 	(
-		call_rw(M:A),
+		call_rw(M:A, X),
 		!,
-		call_rw_(Witness, M:B)
+		Z=C,
+		call_rw_(Witness, M:B, Y)
 	;
-		call_rw_(Witness, M:C)
+		A=X,
+		B=Y,
+		call_rw_(Witness, M:C, Z)
 	).
 
-call_rw_(Witness, M:(A,B)) :- !,
+call_rw_(Witness, M:(A,B), (X,Y)) :- !,
 	catch((
-		call_rw_(Witness, M:A)
-	), cut(Witness, Resume), (
-		throw( cut(Witness, (Resume,(M:B))) )
+		call_rw_(Witness, M:A, X)
+	), cut(Witness, Resume, X), (
+		throw( cut(Witness, (Resume,call_rw(M:B,Y)), (X,Y)) )
 	)),
-	call_rw_(Witness, M:B).
+	call_rw_(Witness, M:B, Y).
 
-call_rw_(Witness, M:(A;B)) :- !,
+call_rw_(Witness, M:(A;B), (X;Y)) :- !,
 	(
-		call_rw_(Witness, M:A)
+		Y = B,
+		call_rw_(Witness, M:A, X)
 	;
+		X = A,
 		call_rw_(Witness, M:B)
 	).
 
-call_rw_(Witness, M:catch(Goal,Ball,Recover)) :- !,
+call_rw_(Witness, M:catch(Goal,Ball,Recover), catch(X,Ball,Y)) :- !,
 	catch((
-		call_rw(Witness, M:Goal)
+		Y = Recover,
+		call_rw(Witness, M:Goal, X)
 	), Ball, (
-		call_rw(Witness, M:Recover)
+		X = Goal,
+		call_rw(Witness, M:Recover, Y)
 	)).
 
 
@@ -207,8 +221,8 @@ call_rw_(Witness, M:catch(Goal,Ball,Recover)) :- !,
 % In this system, it is most useful for certain type-checking predicates to
 % be delayed until the term they are applied to is bound.
 
-call_rw_(_, M:number(X)) :- !, freeze(X, M:number(X)).
-call_rw_(_, M:list(X))   :- !, freeze(X, M:member(X,[[],[_|_]])).
+call_rw_(_, M:number(X), number(X)) :- !, freeze(X, M:number(X)).
+call_rw_(_, M:list(X),   list(X))   :- !, freeze(X, M:member(X,[[],[_|_]])).
 
 
 % Regular queries
@@ -216,44 +230,4 @@ call_rw_(_, M:list(X))   :- !, freeze(X, M:member(X,[[],[_|_]])).
 % Regular queries are the non-control, non-builtin predicates. These are the
 % kinds of queries that get rewritten if they fail.
 
-call_rw_(Witness, M:Goal) :-
-	(
-		call_rw_regular(Witness, M:Goal)
-	*->true;
-		Success = bool(false),
-		rewrite(Goal, RwGoal),
-		(
-			call_rw_regular(Witness, M:RwGoal),
-			nb_setarg(1, Success, true)
-		;
-			Success == bool(true) -> !
-		)
-	).
-
-call_rw_regular(Witness, M:Goal) :-
-	catch((catch((
-		% Expand the goal and evaluate the body in the meta-language
-		catch((
-			clause(M:Goal, Body),
-			once((
-				predicate_property(M:Goal, imported_from(BodyModule))
-			;
-				BodyModule = M
-			;
-				BodyModule = user
-			)),
-			call_rw_(Witness, BodyModule:Body)
-		), cut(Witness, Resume), (
-			call_rw(Goal, Resume)
-		))
-
-	), error(permission_error(access,private_procedure,_),_), (
-		% If there is a permission error,
-		% we must let the underlying system handle the query.
-		call(M:Goal)
-
-	))), error(type_error(_,_),_), (
-		% Ignore type errors.
-		% Assume the query can be rewritten into valid types.
-		fail
-	)).
+call_rw_(_, _:Goal, Result) :- simplify(Goal, Result).

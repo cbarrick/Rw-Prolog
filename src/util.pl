@@ -79,6 +79,9 @@ list([_|T]) :- list(T).
 %     member(Goal, Set).
 % ```
 
+:- meta_predicate distinct(0).
+:- meta_predicate distinct(:,0).
+
 distinct(Goal) :-
 	distinct(Goal, Goal).
 distinct(Witness, Goal) :-
@@ -98,6 +101,8 @@ distinct(Witness, Goal) :-
 % Taken directly from SWI-Prolog v7
 %
 % https://github.com/SWI-Prolog/swipl-devel/blob/63c06e36dccaf1b8a9b158043726de5fa00d4e53/library/solution_sequences.pl#L128
+
+:- meta_predicate limit(+,0).
 
 limit(Count, Goal) :-
 	Count > 0,
