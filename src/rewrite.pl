@@ -102,7 +102,7 @@ simplify(Term, Simple, [H|T]) :-
 		simplify_terminal(Next),
 		Simple = Next
 	;
-		simplify_set_to_list(Term, NewForms, NewFormsList),
+		simplify_set_to_list(NewForms, NewFormsList, Term),
 		append(T, NewFormsList, NewQueue),
 		simplify(Term, Simple, NewQueue)
 	).
@@ -119,12 +119,14 @@ simplify_terminal(Simple) :-
 		call(Simple)
 	)).
 
-simplify_set_to_list(Witness, nb_set(S), List) :-
+simplify_set_to_list(nb_set(S), List, Witness) :-
 	nb_set_to_list(nb_set(S), L),
-	simplify_set_to_list(Witness, L, List).
-simplify_set_to_list(Witness, [Witness:=Term|L], [Term|List]) :-
-	simplify_set_to_list(Witness, L, List).
-simplify_set_to_list(_, [], []).
+	simplify_set_to_list(L, List, Witness).
+
+simplify_set_to_list([Witness:=Term|L], [Term|List], Witness) :-
+	simplify_set_to_list(L, List, Witness).
+
+simplify_set_to_list([], [], _Witness).
 
 
 
