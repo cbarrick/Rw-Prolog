@@ -68,6 +68,8 @@ reduce(Source, Dest, Rule, [H|T]) :-
 
 reduce_outermost(Source, Dest) :- reduce_outermost(Source, Dest, _, _).
 
+reduce_outermost(return(X), X, return(X):=X, []) :- !.
+
 reduce_outermost(Source, Dest, Rule, Position) :-
 	nonvar(Source),
 	(
@@ -91,23 +93,23 @@ reduce_outermost(Source, Dest, Rule, Position) :-
 %
 % TODO: Document
 
-simplify(Simple, Simple) :- simplify_terminal(Simple).
-simplify(Term,   Simple) :- simplify(Term, Simple, [Term]).
+simplify(Term, Simple) :- simplify_terminal(Term, Simple).
+simplify(Term, Simple) :- simplify(Term, Simple, [Term]).
 
 simplify(Term, Simple, [H|T]) :-
 	empty_nb_set(NewForms),
 	(
 		reduce_outermost(H, Next),
 		add_nb_set((Term:=Next), NewForms, true),
-		simplify_terminal(Next),
-		Simple = Next
+		simplify_terminal(Next, Simple)
 	;
 		simplify_set_to_list(NewForms, NewFormsList, Term),
 		append(T, NewFormsList, NewQueue),
 		simplify(Term, Simple, NewQueue)
 	).
 
-simplify_terminal(Simple) :-
+simplify_terminal(return(X), X) :- !.
+simplify_terminal(Simple, Simple) :-
 	predicate_property(Simple, visible),
 	catch((
 		clause(Simple, Body)
