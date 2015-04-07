@@ -37,16 +37,16 @@ redex(Redex, Replacement, (Pattern:=Template:-Condition)) :-
 	Replacement = Replacement_nat.
 
 
-%! reduce_outermost(@Source, ?Dest)
-%! reduce_outermost(@Source, ?Dest, ?Rule, ?Position)
+%! reduce(@Source, ?Dest)
+%! reduce(@Source, ?Dest, ?Rule, ?Position)
 %
 % TODO: Document
 
-reduce_outermost(Source, Dest) :- reduce_outermost(Source, Dest, _, _).
+reduce(Source, Dest) :- reduce(Source, Dest, _, _).
 
-reduce_outermost(return(X), X, return(X):=X, []) :- !.
+reduce(return(X), X, return(X):=X, []) :- !.
 
-reduce_outermost(Source, Dest, Rule, Position) :-
+reduce(Source, Dest, Rule, Position) :-
 	nonvar(Source),
 	(
 		distinct(redex(Source, Dest, Rule)),
@@ -61,7 +61,7 @@ reduce_outermost(Source, Dest, Rule, Position) :-
 		H0 is H-1,
 		nth0(H0, Args, NextSource, Same),
 		nth0(H0, DestArgs, NextDest, Same),
-		reduce_outermost(NextSource, NextDest, Rule, T)
+		reduce(NextSource, NextDest, Rule, T)
 	).
 
 
@@ -75,7 +75,7 @@ simplify(Term, Simple) :- simplify(Term, Simple, [Term]).
 simplify(Term, Simple, [H|T]) :-
 	empty_nb_set(NewForms),
 	(
-		reduce_outermost(H, Next),
+		reduce(H, Next),
 		add_nb_set((Term:=Next), NewForms, true),
 		simplify_terminal(Next, Simple)
 	;
