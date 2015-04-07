@@ -9,12 +9,10 @@ reload :-
 
 main :-
 	write("Rw-Prolog, v0.0.1\n"),
-	main_loop.
-main.
+	\+ main_loop.
 
 
 main_loop :-
-	repeat,
 	flag(repl_count, Count ,Count+1),
 
 	% Prompt for query
@@ -36,25 +34,23 @@ main_loop :-
 	rl_add_history(Line),
 
 	% Evaluate
-	(
-		call_rw(Query, Normal)
-	*->true;
-		ansi_format([bold,fg(red)], "false.\n", []),
-		fail
-	),
+	call_rw(Query, Normal),
 	print_term(Normal, [write_options([variable_names(Names)])]),
 	write(" "),
 
-	% Backtrack on any user input other than ".", "a", "A", or enter.
+	% Backtrack on any user input other than ".", "a", or enter.
 	deterministic(Det),
 	(
 		Det == false,
 		get_single_char(C),
-		\+ member(C, [13,46,65,97])
+		\+ member(C, [13,46,97])
 	->
 		ansi_format([bold], ";\n", []),
 		fail
 	;
-		ansi_format([bold], ".\n", [])
-	),
-	fail.
+		ansi_format([bold], ".\n", []),
+		!, main_loop
+	).
+main_loop :-
+	ansi_format([bold,fg(red)], "false.\n", []),
+	main_loop.
