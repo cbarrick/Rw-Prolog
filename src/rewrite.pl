@@ -37,30 +37,6 @@ redex(Redex, Replacement, (Pattern:=Template:-Condition)) :-
 	Replacement = Replacement_nat.
 
 
-%! reduce(@Source, ?Dest)
-%! reduce(@Source, ?Dest, ?Rule, ?Position)
-%
-% TODO: Document
-
-reduce(Source, Dest) :- reduce(Source, Dest, _, _).
-
-reduce(Source, Dest, Rule, []) :-
-	nonvar(Source),
-	distinct(redex(Source, Dest, Rule)).
-
-reduce(Source, Dest, Rule, [H|T]) :-
-	nonvar(Source),
-	Source =.. [Functor|Args],
-	length(Args, L),
-	length(DestArgs, L),
-	Dest =.. [Functor|DestArgs],
-	between(1,L,H),
-	H0 is H-1,
-	nth0(H0, Args, NextSource, Same),
-	nth0(H0, DestArgs, NextDest, Same),
-	reduce(NextSource, NextDest, Rule, T).
-
-
 %! reduce_outermost(@Source, ?Dest)
 %! reduce_outermost(@Source, ?Dest, ?Rule, ?Position)
 %
