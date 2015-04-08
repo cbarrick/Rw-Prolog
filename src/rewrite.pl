@@ -18,11 +18,14 @@
 :- public (:=)/2.
 
 
-%! redex(@Redex, ?Replacement, ?Rule)
+%! redex(@Redex, ?Replacement, ?Rule) is nondet
 %
-% TODO: Document
+% Redex matches the pattern of the rewrite Rule, and Replacement is the
+% result of contracting Redex.
 
 redex(Redex, Replacement, (Pattern:=Template:-Condition)) :-
+	% Use compy_term_nat to remove attributes of attributed variables.
+	% This prevents attribute duplication, a form of memory leak.
 	copy_term_nat(Redex, Redex_nat),
 	copy_term_nat(Replacement, Replacement_nat),
 	copy_term(Redex_nat, Pattern),
@@ -37,10 +40,14 @@ redex(Redex, Replacement, (Pattern:=Template:-Condition)) :-
 	Replacement = Replacement_nat.
 
 
-%! reduce(@Source, ?Dest)
-%! reduce(@Source, ?Dest, ?Rule, ?Position)
+%! reduce(@Source, ?Dest) is nondet
+%! reduce(@Source, ?Dest, ?Rule, ?Position) is nondet
 %
-% TODO: Document
+% The term Source can be reduced to the term Dest by applying a rewrite Rule
+% at a specific Position.
+%
+% Redexes in Source are candidates for contraction iff they are not proper
+% subterms of another redex in Source.
 
 reduce(Source, Dest) :- reduce(Source, Dest, _, _).
 
@@ -58,16 +65,17 @@ reduce(Source, Dest, Rule, Position) :-
 		length(DestArgs, L),
 		Dest =.. [Functor|DestArgs],
 		between(1,L,H),
-		H0 is H-1,
-		nth0(H0, Args, NextSource, Same),
-		nth0(H0, DestArgs, NextDest, Same),
+		nth1(H, Args, NextSource, Same),
+		nth1(H, DestArgs, NextDest, Same),
 		reduce(NextSource, NextDest, Rule, T)
 	).
 
 
-%! simplify(@Term, ?Simple)
+%! simplify(@Term, ?Simple) is nondet
 %
-% TODO: Document
+% Simple is a terminal form reduced from Term. Determining whether a term is a
+% terminal form is undecidable in general. Thus the Simple is called before
+% returning from this predicate. Term may have more than one terminal form.
 
 simplify(Term, Simple) :- simplify_terminal(Term, Simple).
 simplify(Term, Simple) :- simplify(Term, Simple, [Term]).
