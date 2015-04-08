@@ -1,151 +1,59 @@
-Term-RW
-=========================
+# Rw-Prolog
 
-Term-RW will be an extension of the Prolog programming supporting term
-rewriting. Term-RW will be implemented as a meta-interpreter for SWI-Prolog.
+## Overview
 
+> TODO: Rewrite this when I'm done
 
-Syntax
--------------------------
+Rw-Prolog is an extension of Prolog with an embedded conditional term rewriting engine. The normal SLD-resolution of Prolog is extended to allow failing goals to be rewritten and retried. The result is a versatile language that supports logical, functional, and object-oriented programming styles.
 
-Term-RW operates upon "rewrite graphs". The edges of the graphs are expressed
-as regular Prolog rules using the `:=/2` operator as the principal functor of
-the head. Rules are written in the form `A := B :- Guard.` meaning a term `A`
-may be rewritten to term `B` if the condition `Guard` is true. Computation
-can be expressed through these rewrite graphs where the steps of the algorithm
-are encoded as edges in these graphs.
+Rw-Prolog allows users to define sets of *rewrite rules* that describe how goals may be transformed. These sets of rewrite rules are called *rewriting systems*.
 
 
-Semantics
--------------------------
+## Definitions
 
-**Comming Soon**
+A **rewrite rule** is a regular Prolog rule of the form `Pattern := Template :- Conditions.`[^1]
 
-The semantics of this system are not yet finalized.
+A reducible expression, or **redex**, is a term that unifies with the pattern of some rewrite rule. We say a term `t` "has a redex" if `t` is a redex or if any subterm of `t` has a redex. We also say a redex "matches" a rewrite rule if it unifies with the pattern of the rewrite rule. The process of replacing a redex in a term is called **contracting** the redex.
 
+A **reduction** from term `t1` to `t2` is the result of replacing a redex in `t1` to produce `t2`. The redex must be contracted according to the template of the rewrite rule to which the redex matches, and only if the conditions of the rule are true. We say `t1` "reduces" to `t2`.
 
-Examples
--------------------------
+Reductions may be further limited by a **reduction strategy**. For example, in the outermost-leftmost strategy, if multiple redexes exist in a term, then only the first redex found in a leftmost-depth-first search may be replaced. Formally, a reduction strategy is a function `φ` that assigns to every term `t` a set of positions in `t` that may be reduced.
 
-The predicates responsible for evaluating rewrite rules are located in
-`src/rewrite.pl`. The project is currently unstable; for the most up-to-date
-information, see the inline documentation in the source.
+We say a term is a **normal form** when it cannot be reduced. And a term is a **terminal form** when it denotes a satisfiable formula of first-order logic.
 
-The most important predicates are `rewrite/2` and `rewrite/3`. The query
-`rewrite(A, B)` means that there is some path of any length along the rewrite
-graph from term `A` to term `B`. The query `rewrite(N, A, B)` means that there
-is a path of length `N` from `A` to `B`. A third predicate, `simplify/2`, exists
-that rewrites a term to it's notmal form; however the semantics of normal forms
-for nondeterministic graphs is currently unstable.
+Rewrite systems in which every term reduces to a single terminal form are called **consistent**. Consistent systems in which every term has a single path to its terminal form are said to be **unambiguous**.
 
-Example graphs are included in the `lib` directory. Each one tackles different
-use-cases. Currently, only one graph may be loaded at any time. To make sure
-the system know how to parse the rules, consult `src/rewrite.pl` before
-consulting the graph.
+The **rewrite graph** is the directed graph over terms whose edges are defined when a reduction exists between terms. The leaves of the graph are normal forms.
+
+[^1]: `:=/2` is an operator with precedence 990 and no associativity.
 
 
-### lib/algebra.pl
+## Semantics
 
-This graph is the first graph I wrote. It attempts to model algebraic
-simplification, much like Mathematica. Algebraic expressions _should_ tend to
-a normal, simplified form. Currently, there are bugs in the graph where
-equivalent terms may not simplify to the same normal form; however, many
-expressions, including most polynomials, work properly.
+Rw-Prolog extends the semantics of Prolog to embrace term rewriting. Specifically, a query in Rw-Prolog is satisfiable iff it is itself satisfiable in first-order logic (as in traditional Prolog) or it can be reduced to term which is satisfiable. The term to which the satisfiable query reduces is called the terminal form, and the rewrite rules are themselves represented as Horn clauses in the system's knowledge-base.
 
-#### Example:
-```prolog
-?- ['src/rewrite'].
-true.
+To determine if a formula is satisfiable in first-order-logic, Rw-Prolog implements SLD-resolution by delegating to the underlying Prolog system. When a formula is found to be unsatisfiable, Rw-Prolog engages in a search for a terminal form in the formula's rewrite graph. When found, the formula is replaced by the terminal form, and the execution procedure continues to the next goal. Rw-Prolog imposes as few restrictions as possible upon the rewrite rules. In particular, the rewrite system need not be consistent. Thus upon backtracking, the graph search resumes to find more terminal forms.
 
-?- ['lib/algebra'].
-true.
+### The Reduction and Search Strategies of Rw-Prolog
 
-?- simplify(X+5+4*X^3+3*X^2, Normal).
-Normal = X^3*4+X+5+X^2*3.
-```
+Searching for terminal forms in possibly inconsistent systems poses additional problems not found in traditional consistent systems. Namely, inconsistency means that we must leave choice points whenever a decision is made as to which redex to contract, because contracting redexes in different orders may lead to different terminal forms. Fortunately, many computable functions can be easily expressed with minimal amounts of ambiguity and inconsistency.
 
+The reduction strategy of Rw-Prolog is known as the **parallel-outermost** strategy. Formally, `φ(t)` is the set of all positions `p` of redexes in `t` such that the redex at `p` is not contained within another redex. In other words, when searching `t` for redexes, Rw-Prolog does not consider sub-terms of know redexes as candidates for contraction.
 
-### lib/fib.pl
+The parallel-outermost strategy may return more than one position that can be reduced. However, we cannot contract all possible redexes simultaneously because we may reach a terminal from by contracting only one redex but skip the terminal from by contracting two redexes. Instead, Rw-Prolog implements a breadth-first search of the rewrite graph. Here is the algorithm:
 
-This graph models the computation of the fibonacci sequence. Succesive terms in
-the graph encode the sequence as a "lazy list"/generator, a popular technique
-in functional programming.
+- Let `Q` be a FIFO queue of terms to reduce, initially containing only the subject term.
+- Until `Q` is empty:
+	- Pop a term `t` from `Q`.
+	- If `t` is a terminal form,
+		- Yield `t`.
+	- Otherwise,
+		- For all possible reductions in `t` identified by the reduction strategy, create a new term `t'` by contracting the redex.
+		- Append all `t'` to `Q`. (The order of the `t'` is undefined.)
 
-#### Example
-```prolog
-?- ['src/rewrite'].
-true.
-
-?- ['lib/fib'].
-true.
-
-?- rewrite(fib(0,1,1), X).
-X = [0|fib(1, 1, 2)] ;
-X = [0, 1|fib(1, 2, 3)] ;
-X = [0, 1, 1|fib(2, 3, 5)] ;
-X = [0, 1, 1, 2|fib(3, 5, 8)] ;
-X = [0, 1, 1, 2, 3|fib(5, 8, 13)] ;
-X = [0, 1, 1, 2, 3, 5|fib(8, 13, 21)] ;
-X = [0, 1, 1, 2, 3, 5, 8|fib(13, 21, 34)] ;
-X = [0, 1, 1, 2, 3, 5, 8, 13|fib(..., ..., ...)] .
-```
+The search strategy will yield all possible terminal forms of `t`. However, if the rewrite graph contains cycles and no terminal froms, then the search may not terminate.
 
 
-### lib/infinite.pl
+## Syntax and User's Manual
 
-This module provides examples of graphs where terms do not tend to a normal
-form but instead always provide a transformation of the terms. It is mostly
-useful for internal testing purposes; I use it to to help reason about, debug,
-and examine the computational properties rewrite semantics.
-
-#### Example
-```prolog
-?- ['src/rewrite'].
-true.
-
-?- ['lib/infinite'].
-true.
-
-?- rewrite(a(x)=b(x), Unifier=Unifier).
-Unifier = z(x).
-```
-
-
-### lib/regexp.pl
-
-This module uses term rewriting to model DFA execution and explores how
-object-oriented syntax might be incorporated.
-
-The module describes how simple regular expression terms of the form
-`regexp(Expression)` can be compiled into NFA terms `regexp(Expression, NFA)`.
-It then defines a "match" method using a method-call operator, `::/2`, for NFA
-terms which executes the NFA against an input string, simplifying to either
-`true` or `fail`.
-
-#### Example
-```prolog
-?- ['src/rewrite'].
-true.
-
-?- ['lib/regexp'].
-true.
-
-?- simplify(regexp("aa(a|b)bb"), X).
-X = regexp([97, 97, 40, 97, 124, 98, 41, 98|...], [edge(start, state1, 97), edge(state1, state2, 97), edge(state2, state3, 97), edge(state2, state3, 98), edge(state3, state4, 98), edge(state4, accept, 98)]).
-
-?- simplify(regexp("aa(a|b)bb")::match("aabbb"), X).
-X = true.
-
-% We can use rewrite/2 to examine the operation of the match method.
-% It implements Thomson's algorithm to evaluate the NFA as a DFA.
-% (basically, an implicit powerset construction).
-?- rewrite(regexp("aa(a|b)bb")::match("aabbb"), X).
-X = regexp([97, 97, 40, 97, 124, 98, 41|...], [edge(start, state33, 97), edge(state33, state34, 97), edge(state34, state35, 97), edge(state34, state35, 98), edge(state35, state36, 98), edge(state36, accept, 98)])::match([97, 97, 98, 98, 98]) ;
-X = regexp([97, 97, 40, 97, 124, 98, 41|...], [edge(start, state37, 97), edge(state37, state38, 97), edge(state38, state39, 97), edge(state38, state39, 98), edge(state39, state40, 98), edge(state40, accept, 98)])::match([97, 97, 98, 98, 98], [start]) ;
-X = regexp([97, 97, 40, 97, 124, 98, 41|...], [edge(start, state41, 97), edge(state41, state42, 97), edge(state42, state43, 97), edge(state42, state43, 98), edge(state43, state44, 98), edge(state44, accept, 98)])::match([97, 98, 98, 98], [state41]) ;
-X = regexp([97, 97, 40, 97, 124, 98, 41|...], [edge(start, state45, 97), edge(state45, state46, 97), edge(state46, state47, 97), edge(state46, state47, 98), edge(state47, state48, 98), edge(state48, accept, 98)])::match([98, 98, 98], [state46]) ;
-X = regexp([97, 97, 40, 97, 124, 98, 41|...], [edge(start, state49, 97), edge(state49, state50, 97), edge(state50, state51, 97), edge(state50, state51, 98), edge(state51, state52, 98), edge(state52, accept, 98)])::match([98, 98], [state51]) ;
-X = regexp([97, 97, 40, 97, 124, 98, 41|...], [edge(start, state53, 97), edge(state53, state54, 97), edge(state54, state55, 97), edge(state54, state55, 98), edge(state55, state56, 98), edge(state56, accept, 98)])::match([98], [state56]) ;
-X = regexp([97, 97, 40, 97, 124, 98, 41|...], [edge(start, state57, 97), edge(state57, state58, 97), edge(state58, state59, 97), edge(state58, state59, 98), edge(state59, state60, 98), edge(state60, accept, 98)])::match([], [accept]) ;
-X = true.
-```
+> TODO
