@@ -51,7 +51,7 @@ redex(Redex, Replacement, (Pattern:=Template:-Condition)) :-
 
 reduce(Source, Dest) :- reduce(Source, Dest, _, _).
 
-reduce(return(X), X, return(X):=X, []) :- !.
+reduce(Source, Dest, return(X):=X:-true, []) :- Source == return(Dest), !.
 
 reduce(Source, Dest, Rule, Position) :-
 	nonvar(Source),
