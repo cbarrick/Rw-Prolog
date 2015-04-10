@@ -2,20 +2,30 @@
 %
 % This module provides basic utilities for examining conditional rewrite graphs.
 % Rewrite graphs are encoded as Prolog rules of the form
-%	`OldTerm := NewTerm :- Conditions`.
+%	`Pattern := Template :- Conditions`.
 %
 % @author Chris Barrick
 % @license GPLv3
+
+:- module(rewrite, [
+	redex/3,    % redex(@Redex, ?Replacement, ?Rule)
+	reduce/2,   % reduce(@Source, ?Dest)
+	reduce/4,   % reduce(@Source, ?Dest, ?Rule, ?Position)
+	simplify/2, % simplify(@Term, ?Simple)
+	call_rw/1,  % call_rw(:Goal)
+	call_rw/2,  % call_rw(:Goal, :Result)
+	op(990, xfx, :=)
+]).
 
 :- expects_dialect(swi).
 
 :- use_module(library(nb_set)).
 
-:- use_module('util').
+:- use_module('./util.pl').
 
-:- dynamic (:=)/2.
-:- multifile (:=)/2.
-:- public (:=)/2.
+:- dynamic( (:=)/2 ).
+:- multifile( (:=)/2 ).
+:- public( (:=)/2 ).
 
 
 %! redex(@Redex, ?Replacement, ?Rule) is nondet
@@ -23,16 +33,18 @@
 % Redex matches the pattern of the rewrite Rule, and Replacement is the
 % result of contracting Redex.
 
-redex(Redex, Replacement, (Pattern:=Template:-Condition)) :-
+:- meta_predicate redex(:,:,?).
+
+redex(M:Redex, M:Replacement, (Pattern:=Template:-Condition)) :-
 	% Use compy_term_nat to remove attributes of attributed variables.
 	% This prevents attribute duplication, a form of memory leak.
 	copy_term_nat(Redex, Redex_nat),
 	copy_term_nat(Replacement, Replacement_nat),
 	copy_term(Redex_nat, Pattern),
 	copy_term(Replacement_nat, Template),
-	clause(Pattern:=Template, Condition),
+	M:clause(Pattern:=Template, Condition),
 	subsumes_term(Pattern, Redex_nat),
-	call_rw(Condition, _),
+	call_rw(M:Condition, _),
 	subsumes_term(Pattern, Redex_nat),
 	Pattern = Redex_nat,
 	Redex = Redex_nat,
@@ -49,14 +61,17 @@ redex(Redex, Replacement, (Pattern:=Template:-Condition)) :-
 % Redexes in Source are candidates for contraction iff they are not proper
 % subterms of another redex in Source.
 
-reduce(Source, Dest) :- reduce(Source, Dest, _, _).
+:- meta_predicate reduce(:,:).
+:- meta_predicate reduce(:,:,?,?).
 
-reduce(Source, Dest, return(X):=X:-true, []) :- Source == return(Dest), !.
+reduce(M:Source, M:Dest) :- reduce(M:Source, M:Dest, _, _).
 
-reduce(Source, Dest, Rule, Position) :-
+reduce(M:Source, M:Dest, return(X):=X:-true, []) :- Source == return(Dest), !.
+
+reduce(M:Source, M:Dest, Rule, Position) :-
 	nonvar(Source),
 	(
-		distinct(redex(Source, Dest, Rule)),
+		distinct(redex(M:Source, M:Dest, Rule)),
 		Position = []
 	*->true;
 		Position = [H|T],
@@ -67,7 +82,7 @@ reduce(Source, Dest, Rule, Position) :-
 		between(1,L,H),
 		nth1(H, Args, NextSource, Same),
 		nth1(H, DestArgs, NextDest, Same),
-		reduce(NextSource, NextDest, Rule, T)
+		reduce(M:NextSource, M:NextDest, Rule, T)
 	).
 
 
@@ -77,32 +92,40 @@ reduce(Source, Dest, Rule, Position) :-
 % terminal form is undecidable in general. Thus the Simple is called before
 % returning from this predicate. Term may have more than one terminal form.
 
-simplify(Term, Simple) :- simplify_terminal(Term, Simple).
-simplify(Term, Simple) :- simplify(Term, Simple, [Term]).
+:- meta_predicate simplify(:,:).
 
-simplify(Term, Simple, [H|T]) :-
+simplify(M:Term, M:Simple) :- simplify_terminal(M:Term, M:Simple).
+simplify(M:Term, M:Simple) :- simplify(M:Term, M:Simple, [Term]).
+
+simplify(M:Term, M:Simple, [H|T]) :-
 	empty_nb_set(NewForms),
 	(
-		reduce(H, Next),
+		reduce(M:H, M:Next),
 		add_nb_set((Term:=Next), NewForms, true),
-		simplify_terminal(Next, Simple)
+		simplify_terminal(M:Next, M:Simple)
 	;
 		simplify_set_to_list(NewForms, NewFormsList, Term),
 		append(T, NewFormsList, NewQueue),
-		simplify(Term, Simple, NewQueue)
+		simplify(M:Term, M:Simple, NewQueue)
 	).
 
-simplify_terminal(return(X), X) :- !.
-simplify_terminal(Simple, Simple) :-
-	predicate_property(Simple, visible),
+simplify_terminal(M:return(X), M:X) :- !.
+simplify_terminal(M:Simple, M:Simple) :-
+	functor(Simple, Functor, Arity),
+	M:current_predicate(Functor/Arity),
 	catch((
-		clause(Simple, Body)
+		M:clause(Simple, Body)
 	*->
-		call_rw(Body, _)
+		(
+			M:predicate_property(Simple, imported_from(BodyModule))
+		*->true;
+			BodyModule = M
+		),
+		call_rw(BodyModule:Body)
 	;
-		call(Simple)
+		M:call(Simple)
 	), error(permission_error(access,_,_),_), (
-		call(Simple)
+		M:call(Simple)
 	)).
 
 simplify_set_to_list(nb_set(S), List, Witness) :-
@@ -117,22 +140,21 @@ simplify_set_to_list([], [], _Witness).
 
 
 %! call_rw(:Goal) is nondet
+%! call_rw(:Goal, :Result) is nondet
 %
-% Call Goal. If the query does not succeed, rewrite Goal and try again. If Goal
-% is a compound query (i.e. contains control predicates), the rewrite engine
-% is only applied to the failing component.
+% call_rw/2 is like simplify/2 except control predicates are special cased so
+% that they cannot be overridden by rewrite rules and are evaluated as in
+% normal Prolog.
 %
 % @arg Goal is the query to be called.
+% @arg Result is the terminal from of the goal.
 
 :- meta_predicate call_rw(:).
-:- meta_predicate call_rw(:,-).
-:- meta_predicate call_rw(?,:,-).
-:- meta_predicate call_rw_(?,:,-).
-:- meta_predicate call_rw_expand(?,:,-).
+:- meta_predicate call_rw(:,:).
 
-call_rw(Goal) :- call_rw(Goal, _).
+call_rw(M:Goal) :- call_rw(M:Goal, M:_).
 
-call_rw(Goal, Result) :- call_rw(Goal, Goal, Result).
+call_rw(M:Goal, M:Result) :- call_rw(Goal, M:Goal, M:Result).
 
 call_rw(Witness, Goal, Result) :-
 	catch((
@@ -149,8 +171,18 @@ call_rw(Witness, Goal, Result) :-
 % is a query describing to the top-level how to recover, i.e. what remains of
 % the original goal after the cut is applied.
 
-call_rw_(Witness, _M:(!), (!)) :- !,
+call_rw_(Witness, M:(!), M:(!)) :- !,
 	throw( cut(Witness, true, (!)) ).
+
+
+% Short-circuit built-ins
+% -----
+% We can handle certain built-in predicates automatically without delegating
+% to the rewrite system.
+
+call_rw_(_, M:true, M:true)   :- !, true.
+call_rw_(_, M:false, M:false) :- !, false.
+call_rw_(_, M:fail, M:fail)   :- !, fail.
 
 
 % Control Predicates
@@ -162,55 +194,55 @@ call_rw_(Witness, _M:(!), (!)) :- !,
 %
 % TODO: soft-cuts (`*->`)
 
-call_rw_(Witness, M:(A->B), Result) :- !,
-	call_rw_(Witness, M:(A->B;fail), Result).
+call_rw_(Witness, M:(A->B), M:Result) :- !,
+	call_rw_(Witness, M:(A->B;fail), M:Result).
 
-call_rw_(Witness, M:(A->B;C), (X->Y;Z)) :- !,
+call_rw_(Witness, M:(A->B;C), M:(X->Y;Z)) :- !,
 	(
-		call_rw(M:A, X),
+		call_rw(M:A, M:X),
 		!,
 		Z=C,
-		call_rw_(Witness, M:B, Y)
+		call_rw_(Witness, M:B, M:Y)
 	;
 		A=X,
 		B=Y,
-		call_rw_(Witness, M:C, Z)
+		call_rw_(Witness, M:C, M:Z)
 	).
 
-call_rw_(Witness, M:(A,B), (X,Y)) :- !,
+call_rw_(Witness, M:(A,B), M:(X,Y)) :- !,
 	catch((
-		call_rw_(Witness, M:A, X)
+		call_rw_(Witness, M:A, M:X)
 	), cut(Witness, Resume, X), (
-		throw( cut(Witness, (Resume,call_rw(M:B,Y)), (X,Y)) )
+		throw( cut(Witness, M:(Resume,call_rw(B,Y)), M:(X,Y)) )
 	)),
-	call_rw_(Witness, M:B, Y).
+	call_rw_(Witness, M:B, M:Y).
 
-call_rw_(Witness, M:(A;B), (X;Y)) :- !,
+call_rw_(Witness, M:(A;B), M:(X;Y)) :- !,
 	(
 		Y = B,
-		call_rw_(Witness, M:A, X)
+		call_rw_(Witness, M:A, M:X)
 	;
 		X = A,
 		call_rw_(Witness, M:B)
 	).
 
-call_rw_(Witness, M:catch(Goal,Ball,Recover), catch(X,Ball,Y)) :- !,
+call_rw_(Witness, M:catch(Goal,Ball,Recover), M:catch(X,Ball,Y)) :- !,
 	catch((
 		Y = Recover,
-		call_rw(Witness, M:Goal, X)
+		call_rw(Witness, M:Goal, M:X)
 	), Ball, (
 		X = Goal,
-		call_rw(Witness, M:Recover, Y)
+		call_rw(Witness, M:Recover, M:Y)
 	)).
 
 
-% Type-checking predicates
-% -----
-% In this system, it is most useful for certain type-checking predicates to
-% be delayed until the term they are applied to is bound.
-
-call_rw_(_, M:number(X), number(X)) :- !, freeze(X, M:number(X)).
-call_rw_(_, M:list(X),   list(X))   :- !, freeze(X, M:member(X,[[],[_|_]])).
+% % Type-checking predicates
+% % -----
+% % In this system, it is most useful for certain type-checking predicates to
+% % be delayed until the term they are applied to is bound.
+%
+% call_rw_(_, M:number(X), M:number(X)) :- !, M:freeze(X, number(X)).
+% call_rw_(_, M:list(X),   M:list(X))   :- !, M:freeze(X, member(X,[[],[_|_]])).
 
 
 % Regular queries
@@ -218,4 +250,4 @@ call_rw_(_, M:list(X),   list(X))   :- !, freeze(X, M:member(X,[[],[_|_]])).
 % Regular queries are the non-control, non-builtin predicates. These are the
 % kinds of queries that get rewritten if they fail.
 
-call_rw_(_, _:Goal, Result) :- simplify(Goal, Result).
+call_rw_(_, M:Goal, M:Result) :- simplify(M:Goal, M:Result).
