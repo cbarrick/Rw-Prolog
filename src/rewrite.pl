@@ -26,6 +26,7 @@
 :- dynamic( (:=)/2 ).
 :- multifile( (:=)/2 ).
 :- public( (:=)/2 ).
+:- op(990, xfx, :=).
 
 
 %! redex(@Redex, ?Replacement, ?Rule) is nondet
