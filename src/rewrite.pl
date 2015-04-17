@@ -97,6 +97,8 @@ reduce(M:Source, M:Dest, Rule, Position) :-
 :- public simplify/2.
 :- meta_predicate simplify(:,:).
 
+simplify(M:call(X), M:call(X)) :- !, M:call(X).
+
 simplify(M:Term, M:Simple) :- simplify_terminal(M:Term, M:Simple).
 simplify(M:Term, M:Simple) :- simplify(M:Term, M:Simple, [Term]).
 
