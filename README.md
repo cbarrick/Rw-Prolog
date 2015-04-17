@@ -2,16 +2,14 @@
 
 ## Overview
 
-> TODO: Rewrite this when I'm done
+Rw-Prolog is an extension of Prolog, embracing equational logic programming through term rewriting systems. Rw-Prolog is implemented in Prolog on top of a library for reasoning about term reductions. At a high level, Rw-Prolog behaves like a traditional Prolog except goal terms may be reduced to different terms during the resolution procedure. The rules governing such reductions are defined by the user.
 
-Rw-Prolog is an extension of Prolog with an embedded conditional term rewriting engine. The normal SLD-resolution of Prolog is extended to allow failing goals to be rewritten and retried. The result is a versatile language that supports logical, functional, and object-oriented programming styles.
-
-Rw-Prolog allows users to define sets of *rewrite rules* that describe how goals may be transformed. These sets of rewrite rules are called *rewriting systems*.
+Extending Prolog in this fashion allows for greater flexibility for the programmer. On one extreme, the user may choose not to incorporate rewrite rules and write code as pure logic programs. On another extreme, the programmer may use only deterministic rewrite rules, resulting in very functional code. In yet another approach, the user may use rewrite rules to build a method-call syntax for state terms, resulting in more object-oriented code.
 
 
 ## Definitions
 
-A **rewrite rule** is a regular Prolog rule of the form `Pattern := Template :- Conditions.`[^1]
+A **rewrite rule** is a regular Prolog rule of the form `Pattern := Template :- Conditions.`[^1] The existence of a rewrite rule means that terms matching the *pattern* may be replaced according to the *template* if the *conditions* are true. A set of rewrite rules is called a **rewriting system**.
 
 A reducible expression, or **redex**, is a term that unifies with the pattern of some rewrite rule. We say a term `t` "has a redex" if `t` is a redex or if any subterm of `t` has a redex. We also say a redex "matches" a rewrite rule if it unifies with the pattern of the rewrite rule. The process of replacing a redex in a term is called **contracting** the redex.
 
@@ -52,8 +50,3 @@ The parallel-outermost strategy may return more than one position that can be re
 		- Append all `t'` to `Q`. (The order of the `t'` is undefined.)
 
 The search strategy will yield all possible terminal forms of `t`. However, if the rewrite graph contains cycles and no terminal froms, then the search may not terminate.
-
-
-## Syntax and User's Manual
-
-> TODO
