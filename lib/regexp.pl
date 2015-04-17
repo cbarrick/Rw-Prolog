@@ -1,5 +1,4 @@
 :- use_module('../src/swi/dcg/basics').
-:- use_module('../src/rewrite').
 :- use_module('../src/util').
 
 :- op(550, xfy, (::)).
@@ -20,10 +19,11 @@ regexp(ExpressionAtom) := regexp(ExpressionCodes) :-
 
 % Compile the regexp
 regexp(Expression) := regexp(Expression, NFA) :-
-	once((
+	Expression = [_|_],
+	call(once((
 		phrase(regexp_phrase(Tree), Expression, []),
 		compile_regexp(Tree, NFA)
-	)).
+	))).
 
 
 %! regexp(+Expression, +NFA)::match(+Input)
@@ -55,8 +55,8 @@ regexp(Exp, NFA)::match(InputAtom) := regexp(Exp, NFA)::match(InputCodes) :-
 
 % Expand to the form `regexp(Exp, NFA)::match(Input, CurrentState)`
 regexp(Exp, NFA)::match(Input) := regexp(Exp, NFA)::match(Input, StartState) :-
-	list(Input), % make sure Input has been converted into a codes list
-	setof(Q, null_path(NFA, start, Q), StartState).
+	Input = [_|_],
+	call(setof(Q, null_path(NFA, start, Q), StartState)).
 
 % Terminate whenever we're in an accept state
 regexp(_, _)::match(_, State) := true :- member(accept, State), !.
@@ -64,12 +64,12 @@ regexp(_, _)::match(_, State) := true :- member(accept, State), !.
 % The next state is the list of all reachable states of the NFA
 % given the next symbol in the input, H
 regexp(Exp, NFA)::match([H|T], State) := regexp(Exp, NFA)::match(T, Next) :-
-	setof(Q, (
+	call(setof(Q, (
 		member(Char, [H,wild]),
 		member(Q0, State),
 		member(edge(Q0,Q1,Char), NFA),
 		null_path(NFA, Q1, Q)
-	), Next),
+	), Next)),
 	!.
 
 % % If no rewrites can be performed, fail.
@@ -97,8 +97,6 @@ null_path(NFA, Source, To, Seen) :-
 
 % Compiler
 % -------------------------
-
-compile_regexp(_, _) :- write('-----COMPILING REGEXP-----\n'), fail.
 
 compile_regexp(Tree, NFA) :- compile_regexp(Tree, NFA, start, accept).
 
