@@ -7,15 +7,15 @@
 % @author Chris Barrick
 % @license GPLv3
 
-:- module(rewrite, [
-	redex/3,    % redex(@Redex, ?Replacement, ?Rule)
-	reduce/2,   % reduce(@Source, ?Dest)
-	reduce/4,   % reduce(@Source, ?Dest, ?Rule, ?Position)
-	simplify/2, % simplify(@Term, ?Simple)
-	call_rw/1,  % call_rw(:Goal)
-	call_rw/2,  % call_rw(:Goal, :Result)
-	op(990, xfx, :=)
-]).
+% :- module(rewrite, [
+% 	redex/3,    % redex(@Redex, ?Replacement, ?Rule)
+% 	reduce/2,   % reduce(@Source, ?Dest)
+% 	reduce/4,   % reduce(@Source, ?Dest, ?Rule, ?Position)
+% 	simplify/2, % simplify(@Term, ?Simple)
+% 	call_rw/1,  % call_rw(:Goal)
+% 	call_rw/2,  % call_rw(:Goal, :Result)
+% 	op(990, xfx, :=)
+% ]).
 
 :- expects_dialect(swi).
 
@@ -33,6 +33,7 @@
 % Redex matches the pattern of the rewrite Rule, and Replacement is the
 % result of contracting Redex.
 
+:- public redex/3.
 :- meta_predicate redex(:,:,?).
 
 redex(M:Redex, M:Replacement, (Pattern:=Template:-Condition)) :-
@@ -61,6 +62,7 @@ redex(M:Redex, M:Replacement, (Pattern:=Template:-Condition)) :-
 % Redexes in Source are candidates for contraction iff they are not proper
 % subterms of another redex in Source.
 
+:- public reduce/2, reduce/4.
 :- meta_predicate reduce(:,:).
 :- meta_predicate reduce(:,:,?,?).
 
@@ -92,6 +94,7 @@ reduce(M:Source, M:Dest, Rule, Position) :-
 % terminal form is undecidable in general. Thus the Simple is called before
 % returning from this predicate. Term may have more than one terminal form.
 
+:- public simplify/2.
 :- meta_predicate simplify(:,:).
 
 simplify(M:Term, M:Simple) :- simplify_terminal(M:Term, M:Simple).
@@ -149,6 +152,7 @@ simplify_set_to_list([], [], _Witness).
 % @arg Goal is the query to be called.
 % @arg Result is the terminal from of the goal.
 
+:- public call_rw/1, call_rw/2.
 :- meta_predicate call_rw(:).
 :- meta_predicate call_rw(:,:).
 
