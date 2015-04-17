@@ -1,14 +1,32 @@
-#!/usr/bin/env swipl -g reload -t main
+#!/usr/bin/env swipl -g init -t main
+
+init :-
+	write("Rw-Prolog, v0.0.1\n\n"),
+
+	% load various core modules
+	% TODO: investigate the autoloading mechanic in SWI
+	use_module(library(apply)),  % maplist/2, etc
+	use_module(library(gensym)), % gensym/2, etc
+	use_module(library(lists)),  % member/2, length/2, etc
+	use_module(library(random)), % random/1, maybe/1, etc
+
+	% don't complain about discontiguous predicates
+	% rewrite rules are often discontiguous
+	style_check(-discontiguous),
+
+	% Use traditional strings
+	set_prolog_flag(double_quotes, codes),
+
+	% load the rewrite library and scratchpad
+	reload.
 
 
 reload :-
 	consult('src/rewrite.pl'),
-	consult('scratchpad.pl'),
-	style_check(-singleton).
+	consult('scratchpad.pl').
 
 
 main :-
-	write("Rw-Prolog, v0.0.1\n"),
 	\+ main_loop.
 
 
@@ -16,11 +34,11 @@ main_loop :-
 	flag(repl_count, Count ,Count+1),
 
 	% Prompt for query
-	nl,
 	prompt1("> "),
-	read_clause(user_input, Query, [
+	read_term(user_input, Query, [
 		syntax_errors(fail),
-		variable_names(Names)
+		variable_names(Names),
+		singletons(_)
 	]),
 
 	% Halt on EOF
@@ -48,9 +66,9 @@ main_loop :-
 		ansi_format([bold], ";\n", []),
 		fail
 	;
-		ansi_format([bold], ".\n", []),
+		ansi_format([bold], ".\n\n", []),
 		!, main_loop
 	).
 main_loop :-
-	ansi_format([bold,fg(red)], "false.\n", []),
+	ansi_format([bold,fg(red)], "false.\n\n", []),
 	main_loop.
