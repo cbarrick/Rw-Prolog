@@ -1,7 +1,4 @@
-:- use_module('../src/rewrite').
-
-
-nth(0, [H|_]) := H.
+nth(0, [H|_]) := return(H).
 nth(N, [_|T]) := nth(N0, T) :-
 	between(1,inf,N),
 	N0 is N - 1.
