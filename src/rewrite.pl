@@ -165,8 +165,9 @@ call_rw(M:Goal, M:Result) :- call_rw(Goal, M:Goal, M:Result).
 call_rw(Witness, Goal, Result) :-
 	catch((
 		call_rw_(Witness, Goal, Result)
-	), cut(Witness, Resume, Result), (
-		call_rw(Witness, Resume, Result)
+	), cut(Witness, Resume, CutResult), (
+		Result = CutResult,
+		call_rw(Witness, Resume, _)
 	)).
 
 
@@ -178,7 +179,7 @@ call_rw(Witness, Goal, Result) :-
 % the original goal after the cut is applied.
 
 call_rw_(Witness, M:(!), M:(!)) :- !,
-	throw( cut(Witness, true, (!)) ).
+	throw( cut(Witness, M:true, M:(!)) ).
 
 
 % Short-circuit built-ins
@@ -218,7 +219,7 @@ call_rw_(Witness, M:(A->B;C), M:(X->Y;Z)) :- !,
 call_rw_(Witness, M:(A,B), M:(X,Y)) :- !,
 	catch((
 		call_rw_(Witness, M:A, M:X)
-	), cut(Witness, Resume, X), (
+	), cut(Witness, Resume, M:X), (
 		throw( cut(Witness, M:(Resume,call_rw(B,Y)), M:(X,Y)) )
 	)),
 	call_rw_(Witness, M:B, M:Y).
