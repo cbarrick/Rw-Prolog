@@ -3,7 +3,7 @@
 Chris Barrick
 
 
-## Overview
+## Introduction
 
 An equational logic programming language is one in which computation is described as the process of deriving a normal form of a query formula. Such is similar to the way a classical logic programming language, like Prolog, describes computation as the process of deriving logical consequence of a query formula. A functional programming language and an equational logic programming language are essentially the same from the perspective of the user, in that the user describes an equivalence between formulas and computes by providing formulas to be transformed. The difference between these types of language is that of semantics (O'Donnell, 2005). In a functional language, the equivalences of are expected to hold in a unique model of the equations in the program, while equational logic semantics expect the equivalences to hold in all possible models. This extra generality imbues the program itself with logical significance, much like classical logic programming.
 
