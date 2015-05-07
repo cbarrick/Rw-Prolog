@@ -1,6 +1,6 @@
 # Rw-Prolog
 
-Chris Barrick
+> This document describes the formal semantics of Rw-Prolog. For more user-oriented information, see the [wiki](https://github.com/cbarrick/Rw-Prolog/wiki).
 
 
 ## Introduction
