@@ -65,7 +65,7 @@ reverse_order((>), A, B) :- A @< B, !.
 % -------------------------
 
 % Ground evaluation
-A + B := C :-
+A + B := return(C) :-
 	ground(A),
 	ground(B),
 	C is A + B,
@@ -73,9 +73,6 @@ A + B := C :-
 
 % Normal associativity
 A + (B + C) := (A + B) + C.
-
-% Associative
-A + B + C := A + D :- simplify(B+C, D).
 
 % Normal order
 % This rule must come after the associative rule
@@ -122,9 +119,6 @@ A * B := C :-
 % Normal associativity
 A * (B * C) := (A * B) * C.
 
-% Associative
-(A * B) * C := A * D :- simplify(B*C, D).
-
 % Normal order
 % This rule must come after the associative rule
 % so that the principal functor of B is not (*).
@@ -134,19 +128,17 @@ A * B := B * A :- math_order(<, B, A).
 A * (B + C) := (A*B) + (A*C).
 
 % Identity element
-1 * A := A.
+A * 1 := A.
 
 % Zero element
 _ * 0 := 0.
 
 % Inverse element
-(A/B) * (B/A) := 1.
 A     * (B/A) := B.
+(A/B) * (B/A) := 1.
 
 % Multiplication of rationals
-(A/B) * (C/D) := (A*C) / (B*D).
-(A/B) * C     := (A*C) / B.
-A     * (C/D) := (A*C) / D.
+A * (C/D) := (A*C) / D.
 
 % Multiplication of exponents
 A     * A     := A ^ 2.
@@ -165,10 +157,11 @@ A / B := C :-
 	C is A / B,
 	!.
 
-% Reduce
-(N0 * X) / (D0 * Y) := (N1 * X) / (D1 * Y) :- reduce_fraction(N0/D0, N1/D1).
-(N0 * X) / D0       := (N1 * X) / D1       :- reduce_fraction(N0/D0, N1/D1).
-N0       / (D0 * Y) := N1       / (D1 * Y) :- reduce_fraction(N0/D0, N1/D1).
+% Combine numbers
+(N*A) / (D*B) := (X*A) / B :- number(N), number(D), X is N/D.
+A     / (D*B) := (X*A) / B :- number(D), X is 1/D.
+(N*A) / D     := X * A     :- number(N), number(D), X is N/D.
+N     / (D*B) := X / B     :- number(N), number(D), X is N/D.
 
 % Identity element
 A / 1 := A.
@@ -176,16 +169,14 @@ A / 1 := A.
 % Zero element
 0 / _ := 0.
 
-%
+% Inverse element
 A / A := 1.
 
 % Distribute over addition
 (A + B) / C := (A/C) + (B/C).
 
 % Division of rationals
-(A/B) / (C/D) := (A/B) * (D/C).
-(A/B) / C     := A / (B*C).
-A     / (C/D) := (A*D) / C.
+(A/B) / C := A / (B*C).
 
 % Division of exponents
 X^A     / X^B     := X ^ (A-B).
@@ -221,22 +212,3 @@ A ^ B  := 1 / (A ^ C) :- number(B), B < 0, C is -B.
 
 % Combine exponents
 (A ^ B) ^ C := A ^ (B*C).
-
-
-% Roots
-% -------------------------
-
-sqrt(A)    := root(2, A).
-root(N, A) := A ^ (1/N).
-
-
-% Helpers
-% -------------------------
-
-reduce_fraction(N0/D0, N1/D1) :-
-	integer(N0),
-	integer(D0),
-	Gcd is gcd(N0, D0),
-	Gcd \= 1,
-	N1 is N0 / Gcd,
-	D1 is D0 / Gcd.
