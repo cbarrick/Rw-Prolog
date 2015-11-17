@@ -1,6 +1,6 @@
 # Rw-Prolog
 
-> This document describes the formal semantics of Rw-Prolog. For more user-oriented information, see the [wiki](https://github.com/cbarrick/Rw-Prolog/wiki).
+> Rw-Prolog was developed as part of an undergrad directed study in symbolic programming. The project served as a testbed while I explored and synthesized the theories of term-rewriting systems and logic programming. The document below was submitted to my mentor at the culmination of the semester and serves to formally describe the Rw-Prolog programming language and highlight the outcomes of the course.
 
 
 ## Introduction
