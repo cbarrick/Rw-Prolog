@@ -3,6 +3,15 @@
 > Rw-Prolog was developed as part of an undergrad directed study in symbolic programming. The project served as a testbed while I explored and synthesized the theories of term-rewriting systems and logic programming. The document below was submitted to my mentor at the culmination of the semester and serves to formally describe the Rw-Prolog programming language and highlight the outcomes of the course.
 
 
+## Forward 2019-10-27
+
+This is an objectively bad language. I learned a lot by creating this, and I am especially proud of how easy it was to implement a regex engine in this language. However, for general use, it is way too easy to write yourself into an infinite loop.
+
+Last I checked, this doesn't even work on current SWI-Prolog. I'm not sure at which point it broke, or even if it was my fault or SWI's.
+
+On 2019-10-27, I was cleaning up my drive and found some untracked files in my working directory. I added those files and this forward for posterity, but I'm not entirely sure what I was going after when I wrote that code, or even if it works. This will likely be the final commit to this repo.
+
+
 ## Introduction
 
 An equational logic programming language is one in which computation is described as the process of deriving a normal form of a query formula. Such is similar to the way a classical logic programming language, like Prolog, describes computation as the process of deriving logical consequence of a query formula. A functional programming language and an equational logic programming language are essentially the same from the perspective of the user, in that the user describes an equivalence between formulas and computes by providing formulas to be transformed. The difference between these types of language is that of semantics (O'Donnell, 2005). In a functional language, the equivalences of are expected to hold in a unique model of the equations in the program, while equational logic semantics expect the equivalences to hold in all possible models. This extra generality imbues the program itself with logical significance, much like classical logic programming.
